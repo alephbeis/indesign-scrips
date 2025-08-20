@@ -1,0 +1,7 @@
+# Ignore local shortcut aliases/folders
+Scripts Alphbeis
+Scripts Panel
+
+# IDE and OS junk
+.idea/
+.DS_Store
