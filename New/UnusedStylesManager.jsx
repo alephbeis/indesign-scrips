@@ -11,11 +11,12 @@
 
   // ---------- utils ----------
   function safeName(o){ try{return o.name;}catch(e){return "(unknown)";} }
-  function isBuiltInParagraphStyle(s){ return s && s.isValid && (s.name==="[No Paragraph Style]" || s.name==="[Basic Paragraph Style]"); }
-  function isBuiltInCharacterStyle(s){ return s && s.isValid && (s.name==="[None]"); }
-  function isBuiltInObjectStyle(s){    return s && s.isValid && (s.name==="[None]" || s.name==="[Basic Graphics Frame]" || s.name==="[Basic Text Frame]"); }
-  function isBuiltInTableStyle(s){     return s && s.isValid && (s.name==="[Basic Table]"); }
-  function isBuiltInCellStyle(s){      return s && s.isValid && (s.name==="[None]"); }
+  function isBracketedStyleName(s){ try{ var n = (s && s.isValid) ? s.name : null; return n && n.length>=2 && n.charAt(0)==="[" && n.charAt(n.length-1)==="]"; }catch(_e){ return false; } }
+  function isBuiltInParagraphStyle(s){ return s && s.isValid && isBracketedStyleName(s); }
+  function isBuiltInCharacterStyle(s){ return s && s.isValid && isBracketedStyleName(s); }
+  function isBuiltInObjectStyle(s){    return s && s.isValid && isBracketedStyleName(s); }
+  function isBuiltInTableStyle(s){     return s && s.isValid && isBracketedStyleName(s); }
+  function isBuiltInCellStyle(s){      return s && s.isValid && isBracketedStyleName(s); }
   function addDep(map,id,text){ if(!id) return; if(!map[id]) map[id]=[]; map[id].push(text); }
 
   function stylePath(s){
@@ -180,16 +181,62 @@
       try{ var ncs2 = pr.numberingCharacterStyle || (pr.bulletsAndNumberingTextDefault ? pr.bulletsAndNumberingTextDefault.numberingCharacterStyle : null); if (ncs2 && ncs2.isValid && ncs2.name!=="[None]"){ usedI.charS[ncs2.id]=true; addDep(deps.charS,ncs2.id,"Referenced by Numbering character style in '"+safeName(pr)+"'"); } }catch(_eNC){}
     }
 
-    // Object (direct only)
-    try {
-      var items=[], m;
-      try { items = items.concat(doc.pageItems.everyItem().getElements()); } catch(_eo1){}
-      for (m=0; m<doc.masterSpreads.length; m++) { try { items = items.concat(doc.masterSpreads[m].pageItems.everyItem().getElements()); } catch(_eo2){} }
-      var i2; for (i2=0;i2<items.length;i2++){
-        var it=items[i2]; if(!it||!it.isValid) continue;
-        try{ var os=it.appliedObjectStyle; if(os&&os.isValid){ usedD.obj[os.id]=true; addDep(deps.obj, os.id, "Applied to a page item"); } }catch(_eo3){}
+    // Character (indirect: Based On)
+    try{
+      for (ci=0; ci<C.length; ci++){
+        var csty=C[ci];
+        try{ var cb=csty.basedOn; if (cb && cb.isValid && cb.id!==csty.id){ usedI.charS[cb.id]=true; addDep(deps.charS, cb.id, "Referenced as 'Based On' by '"+safeName(csty)+"'"); } }catch(_cbo){}
       }
+    }catch(_eCBO){}
+
+    // Object (direct: include items inside Groups)
+    try {
+      var items=[], m, seenMap={};
+      try { items = items.concat(doc.pageItems.everyItem().getElements()); } catch(_eo1){}
+      try {
+        var ms = doc.masterSpreads ? doc.masterSpreads.everyItem().getElements() : [];
+        for (m=0; m<ms.length; m++) { try { items = items.concat(ms[m].pageItems.everyItem().getElements()); } catch(_eo2){} }
+        // Also seed master spread groups explicitly
+        for (m=0; m<ms.length; m++) { try { items = items.concat(ms[m].groups ? ms[m].groups.everyItem().getElements() : []); } catch(_eomg){} }
+      } catch(_eoM){}
+      // Seed with groups explicitly (some builds don't expose groups via pageItems)
+      try { items = items.concat(doc.groups ? doc.groups.everyItem().getElements() : []); } catch(_eog){}
+      // Seed with groups on spreads as well
+      try {
+        var sps = doc.spreads ? doc.spreads.everyItem().getElements() : [];
+        var si; for (si=0; si<sps.length; si++){ try { items = items.concat(sps[si].groups ? sps[si].groups.everyItem().getElements() : []); } catch(_eosg){} }
+      } catch(_eoS){}
+      function __markOS(it){
+        try{ var os=it.appliedObjectStyle; if(os&&os.isValid){ usedD.obj[os.id]=true; addDep(deps.obj, os.id, "Applied to a page item"); } }catch(_eos){}
+      }
+      function __scanItem(it){
+        if(!it||!it.isValid) return;
+        try{ var sid = it.id; if (sid && seenMap[sid]) return; if (sid) seenMap[sid]=1; }catch(_eid){}
+        __markOS(it);
+        // Dive into group members if available
+        var members=[], k, tmp;
+        try{
+          if (it.allPageItems && it.allPageItems.everyItem){ tmp = it.allPageItems.everyItem().getElements(); if (tmp && tmp.length) members = members.concat(tmp); }
+        }catch(_eg1){}
+        try{
+          if (it.pageItems && it.pageItems.everyItem){ tmp = it.pageItems.everyItem().getElements(); if (tmp && tmp.length) members = members.concat(tmp); }
+        }catch(_eg2){}
+        try{
+          if (it.groups && it.groups.everyItem){ tmp = it.groups.everyItem().getElements(); if (tmp && tmp.length) members = members.concat(tmp); }
+        }catch(_eg3){}
+        for (k=0; k<members.length; k++){ try{ __scanItem(members[k]); }catch(_erg){} }
+      }
+      var i2; for (i2=0;i2<items.length;i2++){ __scanItem(items[i2]); }
     }catch(_eo){}
+
+    // Object (indirect: Based On)
+    try{
+      var allO = getAllStyles("obj");
+      var oi; for (oi=0; oi<allO.length; oi++){
+        var osty=allO[oi];
+        try{ var ob=osty.basedOn; if (ob && ob.isValid && ob.id!==osty.id){ usedI.obj[ob.id]=true; addDep(deps.obj, ob.id, "Referenced as 'Based On' by '"+safeName(osty)+"'"); } }catch(_obo){}
+      }
+    }catch(_eOBO){}
 
     // Table/Cell (direct only)
     try{
@@ -207,9 +254,27 @@
       }
     }catch(_eTab){}
 
+    // Table (indirect: Based On)
+    try{
+      var allT = getAllStyles("table");
+      var ti; for (ti=0; ti<allT.length; ti++){
+        var tsty=allT[ti];
+        try{ var tbBase=tsty.basedOn; if (tbBase && tbBase.isValid && tbBase.id!==tsty.id){ usedI.table[tbBase.id]=true; addDep(deps.table, tbBase.id, "Referenced as 'Based On' by '"+safeName(tsty)+"'" ); } }catch(_tbo){}
+      }
+    }catch(_eTBO){}
+
+    // Cell (indirect: Based On)
+    try{
+      var allCell = getAllStyles("cell");
+      var ci2; for (ci2=0; ci2<allCell.length; ci2++){
+        var celsty=allCell[ci2];
+        try{ var cb2=celsty.basedOn; if (cb2 && cb2.isValid && cb2.id!==celsty.id){ usedI.cell[cb2.id]=true; addDep(deps.cell, cb2.id, "Referenced as 'Based On' by '"+safeName(celsty)+"'"); } }catch(_cbo2){}
+      }
+    }catch(_eCBO2){}
+
     restoreInclusiveFind(savedFind);
 
-    function filterBuiltins(list, isBI){ var out=[], i; for(i=0;i<list.length;i++) if(!isBI(list[i])) out.push(list[i]); return out; }
+    function filterBuiltins(arr, isBI){ var out=[], i; for(i=0;i<arr.length;i++) if(!isBI(arr[i])) out.push(arr[i]); return out; }
 
     return {
       lists: {
@@ -230,10 +295,10 @@
   // "noUsageAtAll"         → !direct && !indirect
   // "bothSets"             → !direct
   function computeUnused(scan, mode) {
-    function filter(list, usedD, usedI){
+    function filter(arr, usedD, usedI){
       var out=[], i, s, id, d, ind;
-      for (i=0;i<list.length;i++){
-        s=list[i]; if(!s||!s.isValid) continue; id=s.id;
+      for (i=0;i<arr.length;i++){
+        s=arr[i]; if(!s||!s.isValid) continue; id=s.id;
         d = (usedD[id]===true); ind = (usedI[id]===true);
         if (mode==="noDirectButIndirect") { if (!d &&  ind) out.push(s); }
         else if (mode==="noUsageAtAll")   { if (!d && !ind) out.push(s); }
@@ -264,19 +329,18 @@
 
   var hdr = w.add("group");
   hdr.add("statictext", undefined, "Type:");
-  var typeDD = hdr.add("dropdownlist", undefined, ["Paragraph","Character","Object","Table","Cell"]); typeDD.selection = 0;
+  var typeDD = hdr.add("dropdownlist", undefined, ["All","Paragraph","Character","Object","Table","Cell"]); typeDD.selection = 0;
 
   hdr.add("statictext", undefined, "   Mode:");
   var modeDD = hdr.add("dropdownlist", undefined, modeNames); modeDD.selection = 1; // default "no usage at all"
-  var rescanBtn = hdr.add("button", undefined, "Rescan");
 
-  // Two-column list
+  // Columns list
   var list = w.add("listbox", [0,0,820,380], '', {
     multiselect:true,
-    numberOfColumns: 2,
+    numberOfColumns: 3,
     showHeaders: true,
-    columnTitles: ['Style', 'Folder'],
-    columnWidths: [360, 430]
+    columnTitles: ['Type', 'Style', 'Folder'],
+    columnWidths: [120, 300, 330]
   });
 
   var btns = w.add("group"); btns.alignment = "right";
@@ -295,13 +359,31 @@
 
   function fillList(){
     list.removeAll();
-    var arr = currentArr(typeDD.selection.text);
-    var i, s, it;
-    for (i=0;i<arr.length;i++){
-      s = arr[i];
-      it = list.add('item', safeName(s));
-      try { it.subItems[0].text = stylePath(s); } catch(_e){}
+    var selType = typeDD.selection.text;
+    var kindsOrder = ["Paragraph","Character","Object","Table","Cell"];
+    function addItem(kind, s){
+      var it = list.add('item', kind);
+      try { it.subItems[0].text = safeName(s); } catch(_e1){}
+      try { it.subItems[1].text = stylePath(s); } catch(_e2){}
       it._ref = s;
+      it._kind = kind;
+    }
+    var i, s, arr, k;
+    if (selType === "All"){
+      for (k=0; k<kindsOrder.length; k++){
+        var kind = kindsOrder[k];
+        arr = currentArr(kind);
+        for (i=0; i<arr.length; i++){
+          s = arr[i];
+          addItem(kind, s);
+        }
+      }
+    } else {
+      arr = currentArr(selType);
+      for (i=0; i<arr.length; i++){
+        s = arr[i];
+        addItem(selType, s);
+      }
     }
   }
 
@@ -314,11 +396,6 @@
     fillList();
   };
 
-  rescanBtn.onClick = function(){
-    scan = scanDocument();
-    unused = computeUnused(scan, mode);
-    fillList();
-  };
 
   function depsForStyle(s){
     var id=s.id, lines=[];
@@ -350,21 +427,37 @@
 
   delBtn.onClick = function(){
     if (!list.selection || list.selection.length===0){ alert("Select one or more styles to delete."); return; }
-    var kind = typeDD.selection.text;
     var sel=list.selection, copy=[], i;
     for (i=0;i<sel.length;i++) copy.push(sel[i]); // ES3 copy
 
     var delCount=0, fail=0;
 
     app.doScript(function(){
-      var j, it, s, repl;
-      repl = replacementFor(kind); // pick once per kind; fine to reuse
+      var j, it, s, knd;
+      var replCache = {};
+      function getRepl(k){ if (!replCache[k]) replCache[k] = replacementFor(k); return replCache[k]; }
       for (j=copy.length-1; j>=0; j--){
         it = copy[j];
         s  = it._ref;
+        knd = it._kind || ((typeDD && typeDD.selection) ? typeDD.selection.text : null);
+        try{ if (knd === "All") knd = null; }catch(_eK){}
         try{
-          if (s && s.isValid && canDelete(kind, s)){
+          if (!knd) {
+            // Fallback: try to infer from style constructor
+            try{
+              if (s && s.constructor && s.constructor.name) {
+                var cn = s.constructor.name;
+                if (cn.indexOf("ParagraphStyle")>=0) knd = "Paragraph";
+                else if (cn.indexOf("CharacterStyle")>=0) knd = "Character";
+                else if (cn.indexOf("ObjectStyle")>=0) knd = "Object";
+                else if (cn.indexOf("TableStyle")>=0) knd = "Table";
+                else if (cn.indexOf("CellStyle")>=0) knd = "Cell";
+              }
+            }catch(_eInf){}
+          }
+          if (s && s.isValid && knd && canDelete(knd, s)){
             // Use replacement so InDesign is happy even if there are hidden refs
+            var repl = getRepl(knd);
             try { s.remove(repl); } catch(_eTry){ s.remove(); } // fallback
             delCount++;
             try { it.remove(); } catch(_eUI){} // remove from list UI
