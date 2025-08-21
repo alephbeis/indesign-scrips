@@ -23,6 +23,16 @@ Notes:
 */
 
 (function () {
+    if (app && app.doScript) {
+        app.doScript(function () {
+            // Single undo and state safety
+            var sp = app.scriptPreferences;
+            var __prevRedraw = sp.enableRedraw;
+            var tmpDoc = null;
+            var progWin = null;
+            var outFile = null;
+            try {
+                sp.enableRedraw = false;
     // Guards: Ensure InDesign and a document are available
     if (!app || !app.documents || app.documents.length === 0) {
         alert("Open a document before running ExportPlainRTF.");
@@ -53,7 +63,7 @@ Notes:
 
     // Ask user where to save
     var defaultFile = suggestOutputFile();
-    var outFile = null;
+    outFile = null;
     try {
         if (defaultFile && typeof defaultFile.saveDlg === "function") {
             outFile = defaultFile.saveDlg("Save Plain RTF", "RTF:*.rtf");
@@ -73,7 +83,7 @@ Notes:
     }
 
     // Progress window (simple)
-    var progWin = new Window("palette", "Export to Plain RTF");
+    progWin = new Window("palette", "Export to Plain RTF");
     progWin.orientation = "column"; progWin.alignChildren = ["fill", "top"]; progWin.margins = 12; progWin.spacing = 8;
     var progTxt = progWin.add("statictext", undefined, "Preparing...");
     var progBar = progWin.add("progressbar", undefined, 0, Math.max(1, srcDoc.pages.length));
@@ -81,7 +91,7 @@ Notes:
     try { progWin.show(); } catch (_) {}
 
     // Create temporary clean document with same geometry
-    var tmpDoc = app.documents.add();
+    tmpDoc = app.documents.add();
 
     // Copy document setup from source where practical
     try {
@@ -262,4 +272,16 @@ Notes:
     try { progWin.close(); } catch (_) {}
 
     alert("Plain RTF exported successfully to:\n" + outFile.fsName);
+            } catch (err) {
+                try { if (tmpDoc && tmpDoc.isValid) tmpDoc.close(SaveOptions.NO); } catch (_) {}
+                try { if (progWin) progWin.close(); } catch (_) {}
+                alert("Plain RTF export failed: " + err);
+            } finally {
+                try { sp.enableRedraw = __prevRedraw; } catch (_) {}
+            }
+        }, ScriptLanguage.JAVASCRIPT, undefined, UndoModes.ENTIRE_SCRIPT, "Export Plain RTF");
+    } else {
+        // Fallback: run directly if doScript is unavailable
+        // Note: Most InDesign scripting environments support app.doScript
+    }
 })();

@@ -176,8 +176,8 @@ Usage:
     };
 
     var btns = w.add("group"); btns.alignment = "right";
-    var okBtn = btns.add("button", undefined, "Export");
     var cancelBtn = btns.add("button", undefined, "Cancel");
+    var okBtn = btns.add("button", undefined, "Export", {name: "ok"});
 
     okBtn.onClick = function () { w.close(1); };
     cancelBtn.onClick = function () { w.close(0); };
@@ -189,6 +189,15 @@ Usage:
         alert("Select at least one of: Export Normal or Export Reversed.");
         return;
     }
+
+    // Conditional even-page requirement: only when exporting Reversed
+    try {
+        var totalPages = doc.pages.length;
+        if (cbReversed.value && (totalPages % 2 === 1)) {
+            alert("This document ends on an odd page. Please fix the pagination or deselect 'Export Reversed'.");
+            return;
+        }
+    } catch (eOdd) {}
 
     var outFolder = new Folder(pathEdit.text);
     if (!outFolder.exists) {
@@ -334,6 +343,11 @@ Usage:
                 try { if (origViewPDF !== null) app.pdfExportPreferences.viewPDF = origViewPDF; } catch (_r6) {}
             }
         }
+    }
+
+    // Descriptive function names: Normal = exportNormal; Reversed = exportVariant (isReversed = true)
+    function exportNormal(outFile) {
+        return exportVariant(false, false, outFile);
     }
 
     // --- Watermark defaults to match Acrobat sequence (literal text, no numbers) ---
@@ -555,39 +569,47 @@ Usage:
 
     var didSomething = false;
     var tmpWM = null;
-    // Normalize measurement units to ensure consistent geometry calculations across documents
-    var _origUnits = null;
-    try { _origUnits = app.scriptPreferences.measurementUnit; app.scriptPreferences.measurementUnit = MeasurementUnits.POINTS; } catch (_u0) {}
-    try {
-        // Apply watermark if selected (this is the destructive part)
-        if (cbWatermark.value) {
-            // Use the UI value or "Sample" as default
-            tmpWM = applyWatermarkLayer(doc, String(watermarkTextEdit.text || "Sample"));
-        }
-        
-        // Normal
-        if (cbNormal.value) {
-            _prog.set("Exporting normal order…", 10);
-            var normalFile = File(outFolder.fsName + "/" + baseName + ".pdf");
-            // Removal of first two pages is NOT applied for normal export
-            if (exportVariant(false, false, normalFile)) didSomething = true;
-        }
 
-        // Reversed
-        if (cbReversed.value) {
-            _prog.set("Exporting reversed order…", tmpWM ? 60 : 10);
-            var reversedFile = File(outFolder.fsName + "/" + baseName + "-reversed.pdf");
-            if (exportVariant(true, cbRemoveTwo.value, reversedFile)) didSomething = true;
+    app.doScript(function(){
+        var sp = app.scriptPreferences;
+        var _origUnits = null;
+        var _origRedraw = null;
+        try {
+            // Normalize units and suppress redraw during heavy operations
+            try { _origUnits = sp.measurementUnit; sp.measurementUnit = MeasurementUnits.POINTS; } catch (_u0) {}
+            try { _origRedraw = sp.enableRedraw; sp.enableRedraw = false; } catch (_r0) {}
+
+            // Apply watermark if selected (this is the destructive part)
+            if (cbWatermark.value) {
+                // Use the UI value or "Sample" as default
+                tmpWM = applyWatermarkLayer(doc, String(watermarkTextEdit.text || "Sample"));
+            }
+            
+            // Normal
+            if (cbNormal.value) {
+                _prog.set("Exporting normal order…", 10);
+                var normalFile = File(outFolder.fsName + "/" + baseName + ".pdf");
+                // Removal of first two pages is NOT applied for normal export
+                if (exportNormal(normalFile)) didSomething = true;
+            }
+
+            // Reversed
+            if (cbReversed.value) {
+                _prog.set("Exporting reversed order…", tmpWM ? 60 : 10);
+                var reversedFile = File(outFolder.fsName + "/" + baseName + "-reversed.pdf");
+                if (exportVariant(true, cbRemoveTwo.value, reversedFile)) didSomething = true;
+            }
+        } finally {
+            // Always clean up watermark layer first, then close progress
+            if (tmpWM) {
+                try { removeWatermarkLayer(doc, tmpWM); } catch (_ew) {}
+            }
+            // Restore measurement units and redraw
+            try { if (_origUnits != null) sp.measurementUnit = _origUnits; } catch (_u1) {}
+            try { if (_origRedraw != null) sp.enableRedraw = _origRedraw; } catch (_r1) {}
+            try { _prog.close(); } catch (_ec) {}
         }
-    } finally {
-        // Always clean up watermark layer first, then close progress
-        if (tmpWM) {
-            try { removeWatermarkLayer(doc, tmpWM); } catch (_ew) {}
-        }
-        // Restore measurement units
-        try { if (_origUnits != null) app.scriptPreferences.measurementUnit = _origUnits; } catch (_u1) {}
-        try { _prog.close(); } catch (_ec) {}
-    }
+    }, ScriptLanguage.JAVASCRIPT, undefined, UndoModes.ENTIRE_SCRIPT, "Export PDF");
 
     if (didSomething) {
         alert("Export completed.");
