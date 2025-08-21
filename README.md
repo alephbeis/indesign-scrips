@@ -25,19 +25,21 @@ InDesign (JSX): place scripts into your Scripts Panel folder and restart InDesig
 - macOS: ~/Library/Preferences/Adobe InDesign/[version]/[language]/Scripts/Scripts Panel/
 
 ## Available scripts
-- ExportPDF.jsx — Export Normal and/or Reversed PDFs in one go using a chosen PDF preset. Options include: remove first two pages (for reversed export), security restrictions, hyperlinks/bookmarks/layers toggles, viewer preferences (auto-open), and progress feedback. Non-destructive (restores preferences).
-- BulkVariantPDFReverse.jsx — Batch export reversed-variant PDFs across multiple documents or variants using a chosen PDF preset; designed for folder-based processing.
-- ExportPlainRTF.jsx — Export a text-only RTF: removes all formatting and objects; preserves page breaks; includes page numbers per page with section-aware numbering; center-aligns text.
-- ReplaceObject.jsx — Single dialog to either move items between layers (then delete the source layer) or move/merge parent (master) spreads (then delete the source parent). Includes options for master items, guides, and skipping locked items.
-- DeleteHebrewMarks.jsx — Dialog to remove Hebrew marks: Nikud (vowel points), Teamim (cantillation), Meteg selectively (not after Kamatz), all Meteg, or all of the above. Reports counts.
-- CharacterCleanup.jsx — Multi-select cleanup: normalize Hebrew presentation forms, ensure dagesh precedes vowels, remove double spaces, and trim trailing paragraph marks at the end of stories. Safely resets GREP prefs.
-- RemoveNumericPrefixes.jsx — Lists and/or removes explicit typed numeric prefixes at the start of paragraphs (e.g., "^\d+\.\s*"). Shows per-page counts; includes confirmation.
-- UnusedStylesManager.jsx — Find and delete unused paragraph, character, object, table, and cell styles. Robust deletion via replacement styles; includes a mode dropdown and a folder path column.
-- SelectText.jsx — Select all text from the cursor (or end of current selection) to the end of the story.
 
-## Other tools
-- BulkPDFGenerator — See Docs/ScriptUsage/BulkPDFGenerator.md for the “Nekudos” and “Variants” logic, prerequisites, and usage.
-- Change Nekuda — See Docs/ScriptUsage/ChangeNekuda.md for details and conversions.
+### Export Scripts
+- **ExportPDF.jsx** — Export Normal and/or Reversed PDFs using a chosen preset. Features: optional first-page removal, security settings, hyperlinks/bookmarks toggles, viewer preferences, and progress feedback. Non-destructive.
+- **BulkVariantPDFReverse.jsx** — Batch export reversed-variant PDFs across multiple documents using a chosen preset. Designed for folder-based processing workflows.
+- **ExportPlainRTF.jsx** — Export text-only RTF with all formatting removed. Preserves page breaks, includes section-aware page numbering, and center-aligns text.
+- **BulkPDFGenerator.jsx** *(Not Maintained)* — Advanced PDF generation with "Nekudos" and "Variants" logic. See Docs/ScriptUsage/BulkPDFGenerator.md for details.
+
+### Utility Scripts
+- **ChangeNekuda.jsx** — Unified Hebrew vowel mark transformer with dialog interface. Convert between 11 different niqqud transformations. See Docs/ScriptUsage/ChangeNekuda.md for details.
+- **CharacterCleanup.jsx** — Multi-select Hebrew text cleanup: normalize presentation forms, fix dagesh order, remove double spaces, and trim trailing paragraph marks. Includes scope selection.
+- **DeleteHebrewMarks.jsx** — Remove Hebrew marks with selective options: Nikud, Teamim, Meteg (selective or all), or combination. Reports removal counts.
+- **RemoveNumericPrefixes.jsx** — Find and remove numeric prefixes at paragraph start (e.g., "1. ", "2. "). Shows per-page counts with confirmation dialog.
+- **ReplaceObject.jsx** — Move items between layers or merge master spreads with single dialog. Options for master items, guides, and locked item handling.
+- **UnusedStylesManager.jsx** — Find and delete unused styles (paragraph, character, object, table, cell). Robust deletion with replacement styles and mode selection.
+- **SelectText.jsx** — Select all text from cursor position to story end. Simple utility for text selection workflows.
 
 ## Usage and compatibility
 - Most scripts require an open InDesign document; if none is open the script will alert and exit.
