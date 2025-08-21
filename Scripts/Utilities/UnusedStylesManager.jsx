@@ -30,23 +30,30 @@
     return out.join(" / ");
   }
 
-  // Safe replacement styles for delete()
+  // Safe replacement styles for delete(): prefer "None" variants to preserve formatting
   function replacementFor(kind){
     function byName(coll, n){ try{ var it=coll.itemByName(n); if (it && it.isValid) return it; }catch(_e){} return null; }
+    function byNames(coll, names){
+      var i, it; for (i=0; i<names.length; i++){ it = byName(coll, names[i]); if (it) return it; }
+      try{ if (coll && coll.length>0) return coll[0]; }catch(_e2){}
+      return null;
+    }
     if (kind==="Paragraph"){
-      return byName(doc.paragraphStyles,"[Basic Paragraph Style]") || doc.paragraphStyles[0];
+      // Prefer [No Paragraph Style] for replace-with-none semantics; fall back to basic paragraph
+      return byNames(doc.paragraphStyles, ["[No Paragraph Style]", "[Basic Paragraph]", "[Basic Paragraph Style]"]); 
     }
     if (kind==="Character"){
-      return byName(doc.characterStyles,"[None]") || doc.characterStyles[0];
+      return byNames(doc.characterStyles, ["[None]"]); 
     }
     if (kind==="Object"){
-      return byName(doc.objectStyles,"[None]") || doc.objectStyles[0];
+      return byNames(doc.objectStyles, ["[None]"]); 
     }
     if (kind==="Table"){
-      return byName(doc.tableStyles,"[Basic Table]") || doc.tableStyles[0];
+      // Use [None] if available (some builds expose it), otherwise [Basic Table]
+      return byNames(doc.tableStyles, ["[None]", "[Basic Table]"]); 
     }
     if (kind==="Cell"){
-      return byName(doc.cellStyles,"[None]") || doc.cellStyles[0];
+      return byNames(doc.cellStyles, ["[None]"]); 
     }
     return null;
   }
@@ -345,7 +352,7 @@
 
   var btns = w.add("group"); btns.alignment = "right";
   var detailsBtn = btns.add("button", undefined, "Details…");
-  var delBtn     = btns.add("button", undefined, "Delete Selected");
+  var delBtn     = btns.add("button", undefined, "Delete Selected (Replace with None)");
   var closeBtn   = btns.add("button", undefined, "Close", {name:"ok"});
 
   function currentArr(kind){
@@ -473,7 +480,7 @@
     unused = computeUnused(scan, mode);
     fillList();
 
-    alert("Deleted: "+delCount + (fail?("\rFailed: "+fail):""));
+    alert("Deleted (replaced with None; formatting preserved): "+delCount + (fail?("\rFailed: "+fail):""));
   };
 
   // initial fill

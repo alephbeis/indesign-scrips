@@ -85,12 +85,25 @@
     var cbDbl = panel.add("checkbox", undefined, "Remove double spaces");
     var cbTrail = panel.add("checkbox", undefined, "Trim trailing paragraph marks at end of story (leave one)");
 
-    // Default to All selected
+    // Scope chooser
+    var scopePanel = dlg.add("panel", undefined, "Scope");
+    scopePanel.orientation = "column";
+    scopePanel.alignChildren = "left";
+    scopePanel.margins = 12;
+    scopePanel.spacing = 6;
+    var rbAllDocs = scopePanel.add("radiobutton", undefined, "All Documents");
+    var rbDoc = scopePanel.add("radiobutton", undefined, "Document (active)");
+    var rbStory = scopePanel.add("radiobutton", undefined, "Story (from selection)");
+    var rbPage = scopePanel.add("radiobutton", undefined, "Page (active)");
+    var rbSelection = scopePanel.add("radiobutton", undefined, "Selection");
+
+    // Defaults
     allCb.value = true;
     cbFix.value = true;
     cbNorm.value = true;
     cbDbl.value = true;
     cbTrail.value = true;
+    rbDoc.value = true; // default scope per requirement
 
     // Helpers to sync the `All` checkbox
     function syncAllFromChildren() {
@@ -105,10 +118,10 @@
 
     var btns = dlg.add("group");
     btns.alignment = "right";
-    var okBtn = btns.add("button", undefined, "OK");
     var cancelBtn = btns.add("button", undefined, "Cancel");
+    var runBtn = btns.add("button", undefined, "Run", {name: "ok"});
 
-    okBtn.onClick = function () { dlg.close(1); };
+    runBtn.onClick = function () { dlg.close(1); };
     cancelBtn.onClick = function () { dlg.close(0); };
 
     var dlgRes = dlg.show();
@@ -148,6 +161,12 @@
     var cRes = confirmDlg.show();
     if (cRes !== 1 || !confirmed) { return; }
 
+    // Resolve targets based on selected scope
+    var targets = resolveScopeTargets();
+    if (!targets || targets.length === 0) {
+        return; // an alert has already been shown when invalid
+    }
+
     // Build the list of replacements to run based on selection
     var toRun = [];
     if (allCb.value || cbFix.value) {
@@ -172,21 +191,23 @@
     if (allCb.value || cbDbl.value) actionNames.push("Remove double spaces");
     if (allCb.value || cbTrail.value) actionNames.push("Trim trailing paragraph marks");
 
-    for (var i = 0; i < toRun.length; i++) {
-        var pair = toRun[i];
-        var actionName = actionNames[Math.floor(i / (toRun.length / actionNames.length))];
-        
-        // Special handling for double space removal - make it iterative
-        if (pair[0] === "\\x{0020}\\x{0020}") {
-            if (changeIterative(pair[0], pair[1])) {
-                changesApplied.push(actionName);
-            }
-        } else {
-            if (change(pair[0], pair[1])) {
-                changesApplied.push(actionName);
+    app.doScript(function () {
+        for (var i = 0; i < toRun.length; i++) {
+            var pair = toRun[i];
+            var actionName = actionNames[Math.floor(i / (toRun.length / actionNames.length))];
+            
+            // Special handling for double space removal - make it iterative
+            if (pair[0] === "\\x{0020}\\x{0020}") {
+                if (changeIterativeTargets(pair[0], pair[1], targets)) {
+                    changesApplied.push(actionName);
+                }
+            } else {
+                if (changeTargets(pair[0], pair[1], targets)) {
+                    changesApplied.push(actionName);
+                }
             }
         }
-    }
+    }, ScriptLanguage.JAVASCRIPT, undefined, UndoModes.ENTIRE_SCRIPT, "Character Cleanup");
 
     // Show completion confirmation
     showCompletionDialog(changesApplied);
@@ -195,57 +216,167 @@
         for (var i = 0; i < src.length; i++) dest.push(src[i]);
     }
 
-    function change(find, replaceTo) {
-        // Reset preferences, run, and always reset again
-        var foundItems = [];
-        try {
-            app.findGrepPreferences = null;
-            app.changeGrepPreferences = null;
-            app.findGrepPreferences.findWhat = find;
-            app.changeGrepPreferences.changeTo = replaceTo;
-            foundItems = app.activeDocument.findGrep();
-            if (foundItems.length > 0) {
-                app.activeDocument.changeGrep(true);
-                return true;
-            }
-        } catch (e) {
-            // Swallow to continue processing other replacements
-        } finally {
-            app.findGrepPreferences = null;
-            app.changeGrepPreferences = null;
-        }
-        return false;
+    function safeReset() {
+        try { app.findGrepPreferences = null; } catch (e) {}
+        try { app.changeGrepPreferences = null; } catch (e2) {}
     }
 
-    function changeIterative(find, replaceTo) {
-        // For double space removal, keep iterating until no more changes
-        var totalChanges = false;
-        var maxIterations = 10; // Safety limit
-        var iterations = 0;
-        
-        while (iterations < maxIterations) {
+    function changeTargets(find, replaceTo, tgts) {
+        var any = false;
+        for (var ti = 0; ti < tgts.length; ti++) {
+            var t = tgts[ti];
             try {
-                app.findGrepPreferences = null;
-                app.changeGrepPreferences = null;
+                safeReset();
                 app.findGrepPreferences.findWhat = find;
                 app.changeGrepPreferences.changeTo = replaceTo;
-                
-                var foundItems = app.activeDocument.findGrep();
-                if (foundItems.length === 0) {
-                    break; // No more matches found
+                var foundItems = [];
+                try { foundItems = t.findGrep(); } catch (e3) { foundItems = []; }
+                if (foundItems && foundItems.length > 0) {
+                    try { t.changeGrep(true); } catch (e4) {}
+                    any = true;
                 }
-                
-                app.activeDocument.changeGrep(true);
-                totalChanges = true;
-                iterations++;
             } catch (e) {
-                break;
+                // continue
             } finally {
-                app.findGrepPreferences = null;
-                app.changeGrepPreferences = null;
+                safeReset();
             }
         }
-        return totalChanges;
+        return any;
+    }
+
+    function changeIterativeTargets(find, replaceTo, tgts) {
+        var any = false;
+        for (var ti = 0; ti < tgts.length; ti++) {
+            var t = tgts[ti];
+            var maxIterations = 10;
+            var iterations = 0;
+            while (iterations < maxIterations) {
+                var changedThisPass = false;
+                try {
+                    safeReset();
+                    app.findGrepPreferences.findWhat = find;
+                    app.changeGrepPreferences.changeTo = replaceTo;
+                    var foundItems = [];
+                    try { foundItems = t.findGrep(); } catch (e3) { foundItems = []; }
+                    if (!foundItems || foundItems.length === 0) {
+                        break;
+                    }
+                    try { t.changeGrep(true); } catch (e4) {}
+                    changedThisPass = true;
+                    any = true;
+                } catch (e) {
+                    break;
+                } finally {
+                    safeReset();
+                }
+                if (!changedThisPass) break;
+                iterations++;
+            }
+        }
+        return any;
+    }
+
+    function resolveScopeTargets() {
+        var tgts = [];
+        // All Documents
+        if (rbAllDocs.value) {
+            if (!app.documents || app.documents.length === 0) {
+                alert("No open documents.");
+                return [];
+            }
+            for (var d = 0; d < app.documents.length; d++) {
+                try { if (app.documents[d] && app.documents[d].isValid) tgts.push(app.documents[d]); } catch (e) {}
+            }
+            return tgts;
+        }
+        // Active Document
+        if (rbDoc.value) {
+            try {
+                var doc = app.activeDocument;
+                if (doc && doc.isValid) tgts.push(doc);
+                else alert("No active document.");
+            } catch (e2) { alert("No active document."); }
+            return tgts;
+        }
+        // Story (from selection)
+        if (rbStory.value) {
+            var story = null;
+            try {
+                if (app.selection && app.selection.length > 0) {
+                    var sel = app.selection[0];
+                    try {
+                        if (sel && sel.constructor && String(sel.constructor.name) === "Story") {
+                            story = sel;
+                        }
+                    } catch (e3) {}
+                    if (!story) {
+                        try { if (sel && sel.parentStory && sel.parentStory.isValid) story = sel.parentStory; } catch (e4) {}
+                    }
+                }
+            } catch (e5) {}
+            if (!story) {
+                alert("Select some text or a text frame to target its story.");
+                return [];
+            }
+            tgts.push(story);
+            return tgts;
+        }
+        // Page (active)
+        if (rbPage.value) {
+            var page = null;
+            try {
+                if (app.layoutWindows && app.layoutWindows.length > 0) {
+                    page = app.layoutWindows[0].activePage;
+                } else if (app.activeWindow) {
+                    page = app.activeWindow.activePage;
+                }
+            } catch (e6) {}
+            if (!page) {
+                alert("No active page. Open a layout window and try again.");
+                return [];
+            }
+            var seenStoryIds = {};
+            try {
+                var frames = [];
+                try { frames = page.textFrames ? page.textFrames.everyItem().getElements() : []; } catch (e7) { frames = []; }
+                for (var i = 0; i < frames.length; i++) {
+                    var st = null;
+                    try { st = frames[i].parentStory; } catch (e8) { st = null; }
+                    if (st && st.isValid) {
+                        var sid = "";
+                        try { sid = String(st.id); } catch (e9) { sid = String(i); }
+                        if (!seenStoryIds[sid]) { seenStoryIds[sid] = true; tgts.push(st); }
+                    }
+                }
+            } catch (e10) {}
+            if (tgts.length === 0) {
+                alert("No text found on the active page.");
+            }
+            return tgts;
+        }
+        // Selection
+        if (rbSelection.value) {
+            if (!app.selection || app.selection.length === 0) {
+                alert("Make a selection first.");
+                return [];
+            }
+            for (var s = 0; s < app.selection.length; s++) {
+                var item = app.selection[s];
+                var txt = null;
+                try { if (item && item.texts && item.texts.length > 0) txt = item.texts[0]; } catch (e11) {}
+                if (!txt) {
+                    try { if (item && item.parentStory && item.parentStory.isValid) txt = item.texts && item.texts.length > 0 ? item.texts[0] : item.parentStory; } catch (e12) {}
+                }
+                if (txt && txt.isValid) tgts.push(txt);
+            }
+            if (tgts.length === 0) {
+                alert("The selection does not contain editable text.");
+            }
+            return tgts;
+        }
+        // Fallback to active document
+        try { var dflt = app.activeDocument; if (dflt && dflt.isValid) tgts.push(dflt); } catch (e13) {}
+        return tgts;
     }
 
     function showCompletionDialog(changesApplied) {
