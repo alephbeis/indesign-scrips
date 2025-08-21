@@ -352,7 +352,7 @@
 
   var btns = w.add("group"); btns.alignment = "right";
   var detailsBtn = btns.add("button", undefined, "Details…");
-  var delBtn     = btns.add("button", undefined, "Delete Selected (Replace with None)");
+  var delBtn     = btns.add("button", undefined, "Delete Selected");
   var closeBtn   = btns.add("button", undefined, "Close", {name:"ok"});
 
   function currentArr(kind){
