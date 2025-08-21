@@ -1,1 +1,0 @@
-app.selection[0].contents = app.selection[0].contents.split(/\s+/).sort().join(" ")
