@@ -1,10 +1,7 @@
 # Change Nekuda - Unified Script
 
-This directory contains a unified script that combines all Hebrew vowel mark (nekuda) transformations into a single interface.
-
 ## Overview
 
-The `ChangeNekuda.jsx` script replaces 10 individual transformation scripts with a single, user-friendly dialog interface. This consolidation improves usability while maintaining all original functionality.
 
 ## Usage
 
