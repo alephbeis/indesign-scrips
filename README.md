@@ -5,20 +5,19 @@ A curated collection of Adobe InDesign ExtendScript (JSX) utilities to streamlin
 Note for contributors and AI agents:
 - Maintained scripts: These are the canonical reference for coding style and patterns. Unless stated otherwise, everything under Scripts/ is considered Maintained and may be used for code reference.
 - Not Maintained scripts: Do NOT use for reference and do NOT update unless explicitly instructed.
-  - Scripts/Change Nekuda/ (entire directory)
   - Scripts/Export/BulkPDFGenerator.jsx
-- Docs live under Docs/. Some scripts have dedicated READMEs inside Docs organized by script name.
+- Docs live under Docs/ (see Docs/README.md for index). Some scripts have dedicated READMEs inside Docs organized by script name.
 
 ## Repository layout
 - Scripts/ — All runnable scripts
-  - Scripts/Export/ — Export scripts (ExportPDF, ExportPlainRTF, BulkPDFGenerator)
-  - Scripts/Change Nekuda/ — Individual scripts to transform Hebrew niqqud
-  - Scripts/Utilities/ — Common utilities (CharacterCleanup, DeleteHebrewMarks, RemoveNumericPrefixes, ReplaceObject, UnusedStylesManager, SelectText)
+  - Scripts/Export/ — Export scripts (ExportPDF, ExportPlainRTF, BulkPDFGenerator, BulkVariantPDFReverse)
+  - Scripts/Utilities/ — Common utilities (ChangeNekuda, CharacterCleanup, DeleteHebrewMarks, RemoveNumericPrefixes, ReplaceObject, UnusedStylesManager, SelectText)
 - Docs/ — Documentation and references (except this main README)
+  - Docs/README.md — Documentation index
   - Docs/ScriptUsage/BulkPDFGenerator.md — “Nekudos” and “Variants” logic, prerequisites, and usage
   - Docs/ScriptUsage/ChangeNekuda.md — Catalog and usage of niqqud transformer scripts
-  - Docs/Acrobat/Install Instructions.txt — Legacy Acrobat action install notes
-  - Docs/BestPractices.md — Engineering best practices for scripting
+  - Docs/Engineering/CodeStandards.md — Engineering best practices for scripting
+  - Docs/Engineering/DialogUXConventions.md - UX conventions for dialogs
 
 ## Installation
 InDesign (JSX): place scripts into your Scripts Panel folder and restart InDesign.
@@ -27,6 +26,7 @@ InDesign (JSX): place scripts into your Scripts Panel folder and restart InDesig
 
 ## Available scripts
 - ExportPDF.jsx — Export Normal and/or Reversed PDFs in one go using a chosen PDF preset. Options include: remove first two pages (for reversed export), security restrictions, hyperlinks/bookmarks/layers toggles, viewer preferences (auto-open), and progress feedback. Non-destructive (restores preferences).
+- BulkVariantPDFReverse.jsx — Batch export reversed-variant PDFs across multiple documents or variants using a chosen PDF preset; designed for folder-based processing.
 - ExportPlainRTF.jsx — Export a text-only RTF: removes all formatting and objects; preserves page breaks; includes page numbers per page with section-aware numbering; center-aligns text.
 - ReplaceObject.jsx — Single dialog to either move items between layers (then delete the source layer) or move/merge parent (master) spreads (then delete the source parent). Includes options for master items, guides, and skipping locked items.
 - DeleteHebrewMarks.jsx — Dialog to remove Hebrew marks: Nikud (vowel points), Teamim (cantillation), Meteg selectively (not after Kamatz), all Meteg, or all of the above. Reports counts.
