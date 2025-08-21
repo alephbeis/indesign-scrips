@@ -1,4 +1,4 @@
-# Adobe InDesign Scripting — Engineering Best Practices (2025)
+# Adobe InDesign Scripting — Engineering Best Practices
 
 **Scope:** This guide codifies team standards for writing maintainable, performant scripts for the latest InDesign releases (v19–20, “InDesign 2024/2025+”). We target **modern JavaScript via UXP-powered scripting** first, while noting behaviors that also apply to classic ExtendScript where relevant.
 
@@ -28,10 +28,8 @@ indesign-scripts/
 ## 2) Code Style (Team Standard)
 
 * **Modules & Imports**
-
     * UXP: `const { app, Document } = require('indesign');` (no implied globals).
 * **Naming**
-
     * `camelCase` for variables/functions, `PascalCase` for classes, `SCREAMING_SNAKE_CASE` for constants.
 * **Immutability first:** Prefer `const` and pure helpers; avoid mutating arguments.
 * **No magic numbers:** Centralize measurement constants (points per inch, etc.).
@@ -239,31 +237,3 @@ function normalizeWhitespace(doc = app.activeDocument) {
 ---
 
 **TL;DR:** Prefer UXP JS with explicit imports, wrap scripts in a single undo, suppress redraw during heavy work, reset prefs before/after, resolve object specifiers once, and always restore app state in `finally`. These practices align with Adobe’s current scripting model and the community’s hard-won lessons.
-
-
----
-
-## 7) Dialog UX Conventions (Scripts UI)
-
-To ensure consistency across utilities, use these general conventions while allowing dialog-specific flexibility:
-
-- One combined dialog per script entry point.
-  - Options and Scope must both appear in the main dialog.
-  - Scope choices: All Documents, Document (active), Story (from selection), Page (active), Selection.
-  - Default scope must be Document (active).
-- Layout patterns:
-  - Stacked (column): Options panel on top, Scope panel below — recommended for dialogs with many or complex options (e.g., CharacterCleanup).
-  - Side-by-side (row): Options panel on the left and Scope panel on the right — recommended for compact dialogs with short option lists (e.g., RemoveNumericPrefixes, DeleteHebrewMarks).
-  - Dialog margins ~16 px; panel margins ~12 px; vertical spacing ~6–10 px; align children left.
-- Bottom action buttons:
-  - Right-aligned, ordered: "Cancel" then "Run" as the primary action (default button role `{ name: 'ok' }` when applicable).
-  - Additional buttons are allowed when they are primary actions essential to the flow (e.g., Back, Preview, Close for informational dialogs). Avoid using the footer as a general area for secondary/tertiary actions; place such controls within the dialog body.
-- Behavior guidelines:
-  - Validate that at least one option is selected when applicable.
-  - Resolve scope into explicit targets before running.
-  - Wrap processing in a single undo step using `app.doScript(..., UndoModes.ENTIRE_SCRIPT, ...)`.
-  - Reset Find/Change preferences before and after operations.
-
-Notes:
-- Secondary informational dialogs (e.g., read-only reports) may use different primary actions (e.g., Close), while main utility dialogs typically use Cancel/Run.
-- Avoid scope-only dialogs; integrate scope into the main dialog.

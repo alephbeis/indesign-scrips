@@ -1,67 +1,59 @@
-# Change Nekuda (Hebrew niqqud transformers)
+# Change Nekuda - Unified Script
 
-These InDesign JSX scripts convert one Hebrew vowel mark (niqqud) into another throughout the active document. Each file performs a single, focused transformation using GREP Find/Change and is safe to run on any Hebrew text that uses standard Unicode combining marks.
+This directory contains a unified script that combines all Hebrew vowel mark (nekuda) transformations into a single interface.
 
-## What they do
-- Perform a document-wide GREP replacement of specific niqqud marks.
-- Include footnotes, hidden layers, master pages, and locked layers/stories in the search.
-- Reset Find/Change GREP preferences before and after each operation.
-- Some scripts also replace literal Hebrew names of the niqqud (e.g., "צירי" -> "סגול") when those words appear in the document (useful for instructional/label text).
+## Overview
 
-## Scope and behavior
-- Operates on the active InDesign document (not just the current selection).
-- Actions are undoable in InDesign; still, work on a copy or ensure you have version control/backups.
-- Normalization: 00-Pasach-Tzeirei also collapses duplicate patach marks to a single one before converting, to avoid doubled marks.
-
-## Script catalog and conversions
-File names indicate the conversion. Unicode shown in parentheses.
-
-- 00-Pasach-Tzeirei.jsx
-  - Collapses duplicates: Patach + Patach -> Patach (U+05B7 U+05B7 -> U+05B7)
-  - Converts: Patach -> Tsere (U+05B7 -> U+05B5)
-  - Also replaces words: "פתח" -> "צירי"
-- 01-Tzeirei-Segol.jsx
-  - Tsere -> Segol (U+05B5 -> U+05B6)
-  - Also replaces words: "צירי" -> "סגול"
-- 02-Segol-Sheva.jsx
-  - Segol -> Sheva (U+05B6 -> U+05B0)
-  - Also replaces words: "סגול" -> "שוא"
-- 03-Sheva-ChirikChaser.jsx
-  - Sheva -> Hiriq chaser (U+05B0 -> U+05B4)
-  - Also replaces words: "שוא" -> "חיריק חסר"
-- 04-ChirikChaser-ChirikMale.jsx
-  - Hiriq chaser -> Hiriq male (U+05B4 -> U+05B4 U+05D9) [adds yod]
-  - Also replaces words: "חיריק חסר" -> "חיריק מלא"
-- 05-ChirikMale-Kubutz.jsx
-  - Hiriq male -> Qubutz (U+05B4 U+05D9 -> U+05BB)
-  - Also replaces words: "חיריק מלא" -> "קבוץ"
-- 06-Kubutz-Shuruk.jsx
-  - Qubutz -> Shuruk (U+05BB -> U+05D5 U+05BC) [vav + dagesh]
-  - Also replaces words: "קבוץ" -> "שורוק"
-- 07-Shuruk-CholamChaser.jsx
-  - Shuruk -> Cholam chaser (U+05D5 U+05BC -> U+05B9)
-  - Also replaces words: "שורוק" -> "חולם חסר"
-- 08-CholamChaser-CholamMale.jsx
-  - Cholam chaser -> Cholam male (U+05B9 -> U+05D5 U+05B9) [adds vav]
-  - Also replaces words: "חולם חסר" -> "חולם מלא"
-- 09-CholamMale-Pasach.jsx
-  - Cholam male -> Patach (U+05D5 U+05B9 -> U+05B7)
-  - Also replaces words: "חולם מלא" -> "פתח"
-
-Taken together, these scripts form a conversion cycle:
-Patach -> Tsere -> Segol -> Sheva -> Hiriq chaser -> Hiriq male -> Qubutz -> Shuruk -> Cholam chaser -> Cholam male -> Patach
-
-## Installation
-Place the .jsx files into your InDesign Scripts Panel folder, then restart InDesign.
-- Windows: %AppData%/Adobe/InDesign/[version]/[language]/Scripts/Scripts Panel/
-- macOS: ~/Library/Preferences/Adobe InDesign/[version]/[language]/Scripts/Scripts Panel/
+The `ChangeNekuda.jsx` script replaces 10 individual transformation scripts with a single, user-friendly dialog interface. This consolidation improves usability while maintaining all original functionality.
 
 ## Usage
-- Open your InDesign document.
-- In the Scripts panel, double-click the desired script (e.g., 02-Segol-Sheva.jsx).
-- The script runs immediately and applies the conversion to the entire document.
 
-## Notes and limitations
-- These scripts assume Unicode Hebrew combining marks; they are not intended for legacy Hebrew presentation forms.
-- If your document contains instructional text that literally names the niqqud (e.g., "חיריק מלא"), those words may also be changed as described above.
-- GREP options include footnotes, hidden/master pages, and locked items by design to ensure complete coverage. If you need a narrower scope, consider working on a copy of the document.
+1. Open an InDesign document
+2. Run the `ChangeNekuda.jsx` script from the Scripts panel
+3. Select your desired transformation from the dialog
+4. Choose the scope (Document, Selection, or All Documents)
+5. Click "Run" to execute the transformation
+
+## Available Transformations
+
+The script provides the following Hebrew vowel transformations:
+
+1. **Kamatz → Pasach** - Change Kamatz (קמץ) to Pasach (פתח)
+2. **Pasach → Tzeirei** - Change Pasach (פתח) to Tzeirei (צירי)
+3. **Tzeirei → Segol** - Change Tzeirei (צירי) to Segol (סגול)
+4. **Segol → Sheva** - Change Segol (סגול) to Sheva (שוא)
+5. **Sheva → Chirik Chaser** - Change Sheva (שוא) to Chirik Chaser (חיריק חסר)
+6. **Chirik Chaser → Chirik Male** - Change Chirik Chaser (חיריק חסר) to Chirik Male (חיריק מלא)
+7. **Chirik Male → Kubutz** - Change Chirik Male (חיריק מלא) to Kubutz (קבוץ)
+8. **Kubutz → Shuruk** - Change Kubutz (קבוץ) to Shuruk (שורוק)
+9. **Shuruk → Cholam Chaser** - Change Shuruk (שורוק) to Cholam Chaser (חולם חסר)
+10. **Cholam Chaser → Cholam Male** - Change Cholam Chaser (חולם חסר) to Cholam Male (חולם מלא)
+11. **Cholam Male → Pasach** - Change Cholam Male (חולם מלא) to Pasach (פתח)
+
+## Features
+
+- **Unified Interface**: Single dialog for all transformations
+- **Scope Selection**: Choose between All Documents, Document (active), Story (from selection), Page (active), or Selection
+- **Proper Undo**: Each transformation is wrapped in a single undo step
+- **Performance Optimized**: Disables redraw during operations for better performance
+- **Error Handling**: Comprehensive error handling with user-friendly messages
+- **Best Practices**: Follows project coding standards and UI conventions
+
+## Technical Details
+
+Each transformation performs both Hebrew text replacements and Unicode character replacements:
+- Hebrew text names (e.g., "פתח" → "צירי")
+- Unicode vowel marks (e.g., \x{05B7} → \x{05B5})
+
+The script maintains the same find/change options as the original scripts:
+- Includes footnotes, hidden layers, and master pages
+- Includes locked layers and stories for find operations
+- Uses GREP find/replace for pattern matching
+
+## Archive
+
+The original individual scripts (00-09) have been preserved in the `Archive/` directory for reference and potential rollback if needed.
+
+## Compatibility
+
+This script follows the project's engineering best practices and is compatible with modern InDesign versions. It uses ExtendScript (JSX) format for maximum compatibility across InDesign releases.
