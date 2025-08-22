@@ -175,6 +175,10 @@ Usage:
         if (f) pathEdit.text = f.fsName;
     };
 
+    // Option: export into a 'PDF' subfolder under the selected directory
+    var pdfSubfolderCheckbox = folderPanel.add("checkbox", undefined, "Export to PDF folder");
+    pdfSubfolderCheckbox.value = false;
+
     var btns = w.add("group"); btns.alignment = "right";
     var cancelBtn = btns.add("button", undefined, "Cancel");
     var okBtn = btns.add("button", undefined, "Export", {name: "ok"});
@@ -199,7 +203,12 @@ Usage:
         }
     } catch (eOdd) {}
 
-    var outFolder = new Folder(pathEdit.text);
+    // Determine output folder; if 'Export to PDF folder' is checked, use a 'PDF' subfolder
+    var selectedFolder = new Folder(pathEdit.text);
+    var outFolder = selectedFolder;
+    if (pdfSubfolderCheckbox.value) {
+        outFolder = new Folder(selectedFolder.fsName + "/PDF");
+    }
     if (!outFolder.exists) {
         if (!outFolder.create()) {
             alert("Could not access or create the output folder.");

@@ -14,7 +14,7 @@ The `ExportPDF.jsx` script provides comprehensive PDF export capabilities for In
    - Choose between Print PDF (with optional security) or Interactive PDF
    - Select whether to view the PDF after export
    - Optionally enable a text watermark and set its text
-   - Select PDF preset, output folder, and base filename
+   - Select PDF preset, output folder, base filename, and optionally enable "Export to PDF folder"
 4. Click "Export" to begin the export process
 
 ## Export Options
@@ -53,7 +53,7 @@ The `ExportPDF.jsx` script provides comprehensive PDF export capabilities for In
 ### Export Configuration Panel
 - **Export Options**: Checkboxes for normal/reversed order and, for reversed, page removal
 - **PDF Preset Selection**: Dropdown with available presets (defaults to "[Press Quality]" if present)
-- **Output Settings**: Folder selection and base filename
+- **Output Settings**: Folder selection, base filename, and "Export to PDF folder" checkbox
 
 ### PDF Settings Panel
 - **Security (Print PDF only)**: Enable/disable printing/copying/editing restrictions
@@ -63,6 +63,7 @@ The `ExportPDF.jsx` script provides comprehensive PDF export capabilities for In
 
 ### File Management
 - **Smart Output Location**: Defaults to the document folder (or Desktop if unsaved)
+- **Optional PDF Subfolder**: When "Export to PDF folder" is checked, files are saved in a "PDF" subfolder inside the selected directory. The folder is created if it does not exist.
 - **Automatic Naming**: Base filename used with "-reversed" suffix for reversed output
 - **Extension Handling**: Ensures .pdf extension
 
