@@ -41,12 +41,62 @@ function createDialog() {
     scopePanel.alignChildren = "left";
     scopePanel.margins = 12;
 
+    // Scope options with conditional availability
+    // Determine selection context first
+    var hasTextFrameSelection = false;
+    var inTextContext = false;            // true for any text context, including caret
+    var hasRangedTextSelection = false;   // true only when there is an actual text range selection (not caret)
+    try {
+        if (app.selection && app.selection.length > 0) {
+            for (var _i = 0; _i < app.selection.length; _i++) {
+                var _sel = app.selection[_i];
+                try {
+                    var ctor = String(_sel && _sel.constructor && _sel.constructor.name);
+                    // Text context detection
+                    if (ctor === "InsertionPoint" || ctor === "Text" || ctor === "Word" || ctor === "Character" || ctor === "TextStyleRange" || ctor === "Paragraph" || ctor === "Line") {
+                        inTextContext = true;
+                    }
+                    // Ranged text selection (exclude caret and frame selections)
+                    if (ctor !== "InsertionPoint" && ctor !== "TextFrame") {
+                        var t = null;
+                        try { if (_sel && _sel.texts && _sel.texts.length > 0) t = _sel.texts[0]; } catch (eT) { t = null; }
+                        try {
+                            if (t && t.characters && t.characters.length && t.characters.length > 0) {
+                                hasRangedTextSelection = true;
+                            }
+                        } catch (eLen) {}
+                    }
+                    // Consider as text frame if it's a TextFrame or exposes text/lines
+                    if (ctor === "TextFrame") {
+                        hasTextFrameSelection = true;
+                    } else if (_sel && _sel.texts && _sel.texts.length > 0 && _sel.lines) {
+                        hasTextFrameSelection = true;
+                    }
+                } catch (e) {}
+            }
+        }
+    } catch (e0) {}
+
+    // Order: All Documents, Document, Page, Story, Frame, Selected Text
     var rbAllDocs = scopePanel.add("radiobutton", undefined, "All Documents");
-    var rbDoc = scopePanel.add("radiobutton", undefined, "Document (active)");
-    var rbStory = scopePanel.add("radiobutton", undefined, "Story (from selection)");
-    var rbPage = scopePanel.add("radiobutton", undefined, "Page (active)");
-    var rbSelection = scopePanel.add("radiobutton", undefined, "Selection");
+    var rbDoc = scopePanel.add("radiobutton", undefined, "Document");
+    var rbPage = scopePanel.add("radiobutton", undefined, "Page");
+    var rbStory = scopePanel.add("radiobutton", undefined, "Story");
+    var rbFrame = scopePanel.add("radiobutton", undefined, "Frame");
+    var rbSelection = scopePanel.add("radiobutton", undefined, "Selected Text");
+
+    // Defaults
     rbDoc.value = true; // default scope
+
+    // Enablement rules: show but disable if not applicable
+    rbSelection.enabled = hasRangedTextSelection; // Disable for caret-only selection
+    rbStory.enabled = (inTextContext || hasTextFrameSelection);
+    rbFrame.enabled = (inTextContext || hasTextFrameSelection);
+
+    // Ensure no disabled option is selected
+    if (!rbSelection.enabled && rbSelection.value) { rbSelection.value = false; rbDoc.value = true; }
+    if (!rbStory.enabled && rbStory.value) { rbStory.value = false; rbDoc.value = true; }
+    if (!rbFrame.enabled && rbFrame.value) { rbFrame.value = false; rbDoc.value = true; }
 
     // Bottom buttons (right-aligned): Cancel then Run
     var buttonGroup = dialog.add("group");
@@ -66,8 +116,9 @@ function createDialog() {
 
         if (rbAllDocs.value) scopeChoice = "allDocs";
         else if (rbDoc.value) scopeChoice = "doc";
-        else if (rbStory.value) scopeChoice = "story";
         else if (rbPage.value) scopeChoice = "page";
+        else if (rbStory && rbStory.value) scopeChoice = "story";
+        else if (rbFrame && rbFrame.value) scopeChoice = "frame";
         else if (rbSelection.value) scopeChoice = "selection";
         dialog.close(1);
     };
@@ -107,20 +158,14 @@ if (!app || !app.documents || app.documents.length === 0) {
                             deleteMesegAll(false, targets);
                             break;
                         case "All of the above":
-                            var nikudCount = deleteNikud(true, targets);
-                            var teamimCount = deleteTeamim(true, targets);
-                            var mesegCount = deleteMesegAll(true, targets);
-                            var totalCount = nikudCount + teamimCount + mesegCount;
-                            if (totalCount === 0) {
-                                alert("There was nothing to delete.");
+                            var foundNikud = deleteNikud(true, targets);
+                            var foundTeamim = deleteTeamim(true, targets);
+                            var foundMeseg = deleteMesegAll(true, targets);
+                            var foundAny = foundNikud || foundTeamim || foundMeseg;
+                            if (foundAny) {
+                                alert("All Hebrew marks deletion completed!");
                             } else {
-                                alert(
-                                    "All Hebrew marks deletion completed!\n\nSummary:\n" +
-                                    "• " + countWithNoun(nikudCount, "vowel point", "vowel points") + " (nikud) removed\n" +
-                                    "• " + countWithNoun(teamimCount, "cantillation mark", "cantillation marks") + " (teamim) removed\n" +
-                                    "• " + countWithNoun(mesegCount, "meteg mark", "meteg marks") + " removed\n\n" +
-                                    "Total: " + countWithNoun(totalCount, "mark", "marks") + " removed."
-                                );
+                                alert("No Hebrew marks found to delete.");
                             }
                             break;
                     }
@@ -129,53 +174,6 @@ if (!app || !app.documents || app.documents.length === 0) {
         }
     }
 
-// Helper to show consistent confirmation messages with proper grammar
-function notifyDeletion(context, count, singularNoun, pluralNoun) {
-    if (count > 0) {
-        var noun = (count === 1) ? singularNoun : pluralNoun;
-        var verb = (count === 1) ? "was" : "were";
-        var formattedCount = formatNumber(count);
-        alert(context + " completed.\n" + formattedCount + " " + noun + " " + verb + " removed.");
-    } else {
-        alert("There was nothing to delete.");
-    }
-}
-
-function countWithNoun(count, singular, plural) {
-    var formatted = formatNumber(count);
-    return formatted + " " + ((count === 1) ? singular : plural);
-}
-
-function showScopeDialog() {
-    var dlg = new Window("dialog", "Scope");
-    dlg.orientation = "column";
-    dlg.alignChildren = "left";
-    dlg.margins = 16;
-    dlg.add("statictext", undefined, "Choose where to apply the deletion:");
-    var panel = dlg.add("panel", undefined, "Scope");
-    panel.orientation = "column"; panel.alignChildren = "left"; panel.margins = 12;
-    var rbAllDocs = panel.add("radiobutton", undefined, "All Documents");
-    var rbDoc = panel.add("radiobutton", undefined, "Document (active)");
-    var rbStory = panel.add("radiobutton", undefined, "Story (from selection)");
-    var rbPage = panel.add("radiobutton", undefined, "Page (active)");
-    var rbSelection = panel.add("radiobutton", undefined, "Selection");
-    rbDoc.value = true; // default = Document
-    var g = dlg.add("group"); g.alignment = "right";
-    var ok = g.add("button", undefined, "OK");
-    var cancel = g.add("button", undefined, "Cancel");
-    var result = null;
-    ok.onClick = function(){
-        if (rbAllDocs.value) result = "allDocs";
-        else if (rbDoc.value) result = "doc";
-        else if (rbStory.value) result = "story";
-        else if (rbPage.value) result = "page";
-        else if (rbSelection.value) result = "selection";
-        dlg.close(1);
-    };
-    cancel.onClick = function(){ result = null; dlg.close(0); };
-    var shown = dlg.show();
-    return (shown === 1) ? result : null;
-}
 
 function resolveScopeTargets(scope) {
     var tgts = [];
@@ -204,25 +202,61 @@ function resolveScopeTargets(scope) {
         var page = null;
         try { if (app.layoutWindows && app.layoutWindows.length > 0) page = app.layoutWindows[0].activePage; else if (app.activeWindow) page = app.activeWindow.activePage; } catch (e4) {}
         if (!page) { alert("No active page. Open a layout window and try again."); return []; }
-        var seen = {};
         try {
             var frames = page.textFrames ? page.textFrames.everyItem().getElements() : [];
             for (var i = 0; i < frames.length; i++) {
-                var st = null; try { st = frames[i].parentStory; } catch (e5) {}
-                if (st && st.isValid) { var sid = ""; try { sid = String(st.id); } catch (e6) { sid = String(i); } if (!seen[sid]) { seen[sid] = true; tgts.push(st); } }
+                try {
+                    var tf = frames[i];
+                    var lines = null;
+                    try { lines = tf && tf.lines ? tf.lines.everyItem().getElements() : []; } catch (ee0) { lines = []; }
+                    if (lines && lines.length > 0) {
+                        var firstChar = null, lastChar = null;
+                        try { firstChar = lines[0].characters[0]; } catch (ee1) {}
+                        try { var lastLine = lines[lines.length - 1]; lastChar = lastLine.characters[-1]; } catch (ee2) {}
+                        if (firstChar && lastChar) {
+                            var range = null;
+                            try { range = tf.parentStory.texts.itemByRange(firstChar, lastChar); } catch (ee3) {}
+                            if (range && range.isValid) tgts.push(range);
+                        }
+                    }
+                } catch (e5) {}
             }
         } catch (e7) {}
         if (tgts.length === 0) alert("No text found on the active page.");
         return tgts;
     }
+    if (scope === "frame") {
+        if (!app.selection || app.selection.length === 0) { alert("Select one or more frames."); return []; }
+        for (var s = 0; s < app.selection.length; s++) {
+            var it = app.selection[s];
+            var tf = null;
+            try { var ctor = String(it && it.constructor && it.constructor.name); if (ctor === "TextFrame") tf = it; } catch (ef) {}
+            if (!tf) { try { if (it && it.texts && it.texts.length > 0 && it.lines) tf = it; } catch (ef2) {} }
+            if (tf) {
+                var lines = null;
+                try { lines = tf.lines ? tf.lines.everyItem().getElements() : []; } catch (ee0) { lines = []; }
+                if (lines && lines.length > 0) {
+                    var firstChar = null, lastChar = null;
+                    try { firstChar = lines[0].characters[0]; } catch (ee1) {}
+                    try { var lastLine = lines[lines.length - 1]; lastChar = lastLine.characters[-1]; } catch (ee2) {}
+                    if (firstChar && lastChar) {
+                        var range = null;
+                        try { range = tf.parentStory.texts.itemByRange(firstChar, lastChar); } catch (ee3) {}
+                        if (range && range.isValid) tgts.push(range);
+                    }
+                }
+            }
+        }
+        if (tgts.length === 0) alert("No text found in the selected frame(s).");
+        return tgts;
+    }
     if (scope === "selection") {
-        if (!app.selection || app.selection.length === 0) { alert("Make a selection first."); return []; }
+        if (!app.selection || app.selection.length === 0) { alert("Make a text selection first."); return []; }
         for (var s = 0; s < app.selection.length; s++) {
             var item = app.selection[s];
             var txt = null;
             try { if (item && item.texts && item.texts.length > 0) txt = item.texts[0]; } catch (e8) {}
-            if (!txt) { try { if (item && item.parentStory && item.parentStory.isValid) txt = item.texts && item.texts.length > 0 ? item.texts[0] : item.parentStory; } catch (e9) {}
-            }
+            // Do not escalate to parentStory in Selection scope; require actual text
             if (txt && txt.isValid) tgts.push(txt);
         }
         if (tgts.length === 0) alert("The selection does not contain editable text.");
@@ -238,66 +272,86 @@ function safeReset() {
     try { app.changeGrepPreferences = null; } catch (e2) {}
 }
 
+function _getDocFrom(obj) {
+    // Walk parent chain to find Document
+    try {
+        var p = obj;
+        while (p && p.parent) {
+            p = p.parent;
+            try { if (p && p.constructor && String(p.constructor.name) === "Document") return p; } catch (e) {}
+        }
+    } catch (e2) {}
+    return null;
+}
+
+
 function changeAcrossTargets(findPattern, replaceText, targets) {
-    var total = 0;
+    // Correct approach: changeGrep returns collections, check if any have length > 0
+    var foundAny = false;
+    
     for (var i = 0; i < targets.length; i++) {
         var t = targets[i];
         try {
+            // Perform the change and check what was returned
             safeReset();
             app.findGrepPreferences.findWhat = findPattern;
-            var matches = [];
-            try { matches = t.findGrep(); } catch (e3) { matches = []; }
-            var count = matches ? matches.length : 0;
-            if (count > 0) {
-                try { app.changeGrepPreferences.changeTo = replaceText; t.changeGrep(true); } catch (e4) {}
-                total += count;
+            app.changeGrepPreferences.changeTo = replaceText;
+            try { 
+                var result = t.changeGrep(); 
+                // changeGrep returns a collection - check if it has items
+                if (result && result.length && result.length > 0) {
+                    foundAny = true;
+                }
+            } catch (ce) { 
+                // Continue if error
             }
+            
         } catch (e) {
+            // Continue with next target
         } finally {
             safeReset();
         }
     }
-    return total;
+    
+    return foundAny;
+}
+
+function notifyDeletionResult(context, foundAny) {
+    if (foundAny) {
+        alert(context + " completed.");
+    } else {
+        alert("No Hebrew marks found to delete.");
+    }
 }
 
 function deleteNikud(silent, targets) {
     // Hebrew vowel points (nikud)
-    var nikudPattern = "(\\x{05B0}|\\x{05B1}|\\x{05B2}|\\x{05B3}|\\x{05B4}|\\x{05B5}|\\x{05B6}|\\x{05B7}|\\x{05B8}|\\x{05B9}|\\x{05BA}|\\x{05BB}|\\x{05BC}|\\x{05BD}|\\x{05BE}|\\x{05BF}|\\x{05C0}|\\x{05C2}|\\x{05C3}|\\x{05C4}|\\x{05C5}|\\x{05C7})";
-    var count = changeAcrossTargets(nikudPattern, "", targets);
-    if (!silent) { notifyDeletion("Nikud deletion", count, "vowel point", "vowel points"); }
-    return count;
+    var nikudPattern = "(\\x{05B0}|\\x{05B1}|\\x{05B2}|\\x{05B3}|\\x{05B4}|\\x{05B5}|\\x{05B6}|\\x{05B7}|\\x{05B8}|\\x{05B9}|\\x{05BA}|\\x{05BB}|\\x{05BC}|\\x{05BD}|\\x{05BE}|\\x{05BF}|\\x{05C0}|\\x{05C1}|\\x{05C2}|\\x{05C3}|\\x{05C4}|\\x{05C5}|\\x{05C7})";
+    var foundAny = changeAcrossTargets(nikudPattern, "", targets);
+    if (!silent) { notifyDeletionResult("Nikud deletion", foundAny); }
+    return foundAny;
 }
 
 function deleteTeamim(silent, targets) {
     // Hebrew cantillation marks (teamim)
     var teamimPattern = "(\\x{0591}|\\x{0592}|\\x{0593}|\\x{0594}|\\x{0595}|\\x{0596}|\\x{0597}|\\x{0598}|\\x{0599}|\\x{059A}|\\x{059B}|\\x{059C}|\\x{059D}|\\x{05AE}|\\x{059E}|\\x{059F}|\\x{05A0}|\\x{05A1}|\\x{05A2}|\\x{05A3}|\\x{05A4}|\\x{05A5}|\\x{05A6}|\\x{05A7}|\\x{05A8}|\\x{05A9}|\\x{05AA}|\\x{05AB}|\\x{05AC}|\\x{05AD}|\\x{05AF}|\\x{05F3}|\\x{05F4})";
-    var count = changeAcrossTargets(teamimPattern, "", targets);
-    if (!silent) { notifyDeletion("Teamim deletion", count, "cantillation mark", "cantillation marks"); }
-    return count;
+    var foundAny = changeAcrossTargets(teamimPattern, "", targets);
+    if (!silent) { notifyDeletionResult("Teamim deletion", foundAny); }
+    return foundAny;
 }
 
 function deleteMesegConditional(silent, targets) {
     // Meteg (\x{05BD}) but only when NOT preceded by qamatz (\x{05B8})
     var mesegPattern = "(?<!\\x{05B8})\\x{05BD}";
-    var count = changeAcrossTargets(mesegPattern, "", targets);
-    if (!silent) { notifyDeletion("Meteg (selective) deletion", count, "meteg mark (not preceded by a Kamatz)", "meteg marks (not preceded by a Kamatz)"); }
-    return count;
+    var foundAny = changeAcrossTargets(mesegPattern, "", targets);
+    if (!silent) { notifyDeletionResult("Meteg (selective) deletion", foundAny); }
+    return foundAny;
 }
 
 function deleteMesegAll(silent, targets) {
     // Delete all meteg characters (\x{05BD}) regardless of context
     var mesegPattern = "\\x{05BD}";
-    var count = changeAcrossTargets(mesegPattern, "", targets);
-    if (!silent) { notifyDeletion("Meteg (all) deletion", count, "meteg mark", "meteg marks"); }
-    return count;
-}
-
-// Formats integer numbers with comma thousands separators (e.g., 1,234,567)
-function formatNumber(n) {
-    var s = String(n);
-    var isNeg = (s.charAt(0) === "-");
-    var x = isNeg ? s.substring(1) : s;
-    // Insert commas every three digits from the right
-    var formatted = x.replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1,");
-    return isNeg ? ("-" + formatted) : formatted;
+    var foundAny = changeAcrossTargets(mesegPattern, "", targets);
+    if (!silent) { notifyDeletionResult("Meteg (all) deletion", foundAny); }
+    return foundAny;
 }
