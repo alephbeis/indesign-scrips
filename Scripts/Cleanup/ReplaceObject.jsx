@@ -81,12 +81,12 @@
     var rowL1 = layerGroup.add("group");
     rowL1.add("statictext", undefined, "Layer to delete:");
     var ddSrcLayer = rowL1.add("dropdownlist", undefined, layerNames);
-    if (ddSrcLayer && layerNames.length > 0) ddSrcLayer.selection = 0;
+    // No preselection; user must choose
 
     var rowL2 = layerGroup.add("group");
     rowL2.add("statictext", undefined, "Destination layer:");
     var ddDstLayer = rowL2.add("dropdownlist", undefined, layerNames);
-    if (ddDstLayer && layerNames.length > 1) ddDstLayer.selection = 1; else if (ddDstLayer && layerNames.length > 0) ddDstLayer.selection = 0;
+    // No preselection; user must choose
 
     var cbLayerMasters = layerGroup.add("checkbox", undefined, "Also move items on master spreads");
     cbLayerMasters.value = true;
@@ -103,12 +103,12 @@
     var rowP1 = parentGroup.add("group");
     rowP1.add("statictext", undefined, "Parent to delete:");
     var ddSrcParent = rowP1.add("dropdownlist", undefined, masterNames);
-    if (ddSrcParent && masterNames.length > 0) ddSrcParent.selection = 0;
+    // No preselection; user must choose
 
     var rowP2 = parentGroup.add("group");
     rowP2.add("statictext", undefined, "Destination parent:");
     var ddDstParent = rowP2.add("dropdownlist", undefined, masterNames);
-    if (ddDstParent && masterNames.length > 1) ddDstParent.selection = 1; else if (ddDstParent && masterNames.length > 0) ddDstParent.selection = 0;
+    // No preselection; user must choose
 
     var cbMoveGuides = parentGroup.add("checkbox", undefined, "Also move guides");
     cbMoveGuides.value = false;
@@ -158,7 +158,42 @@
     var btnOK = btns.add("button", undefined, "OK");
     var btnCancel = btns.add("button", undefined, "Cancel");
 
-    btnOK.onClick = function () { dlg.close(1); };
+    // Disable OK until both source and destination are selected for the active operation
+    btnOK.enabled = false;
+
+    function selectedBothForLayer() {
+      return !!(ddSrcLayer && ddSrcLayer.selection) && !!(ddDstLayer && ddDstLayer.selection);
+    }
+    function selectedBothForParent() {
+      return !!(ddSrcParent && ddSrcParent.selection) && !!(ddDstParent && ddDstParent.selection);
+    }
+    function updateOkState() {
+      var isLayerOp = rbLayer.value;
+      var ok = isLayerOp ? selectedBothForLayer() : selectedBothForParent();
+      btnOK.enabled = ok;
+    }
+
+    // Wire up change handlers
+    ddSrcLayer.onChange = updateOkState;
+    ddDstLayer.onChange = updateOkState;
+    ddSrcParent.onChange = updateOkState;
+    ddDstParent.onChange = updateOkState;
+
+    // Ensure radio button toggles also refresh OK state and panels
+    rbLayer.onClick = function () { updatePanels(); updateOkState(); };
+    rbParent.onClick = function () { updatePanels(); updateOkState(); };
+
+    // Ensure initial state is correct when dialog appears
+    dlg.onShow = function () { updatePanels(); updateOkState(); };
+
+    btnOK.onClick = function () {
+      if (rbLayer.value) {
+        if (!selectedBothForLayer()) { alert("Please select both source and destination layers."); return; }
+      } else {
+        if (!selectedBothForParent()) { alert("Please select both source and destination parents/masters."); return; }
+      }
+      dlg.close(1);
+    };
     btnCancel.onClick = function () { dlg.close(0); };
 
     var res = dlg.show();
@@ -166,8 +201,12 @@
 
     if (rbLayer.value) {
       if (layerRefs.length < 2) { alert("Document needs at least two layers."); return null; }
-      var srcIdxL = ddSrcLayer && ddSrcLayer.selection ? ddSrcLayer.selection.index : 0;
-      var dstIdxL = ddDstLayer && ddDstLayer.selection ? ddDstLayer.selection.index : (layerRefs.length > 1 ? 1 : 0);
+      if (!ddSrcLayer || !ddSrcLayer.selection || !ddDstLayer || !ddDstLayer.selection) {
+        alert("Please select both source and destination layers.");
+        return null;
+      }
+      var srcIdxL = ddSrcLayer.selection.index;
+      var dstIdxL = ddDstLayer.selection.index;
       return {
         op: "layer",
         srcIdx: srcIdxL,
@@ -178,8 +217,12 @@
       };
     } else {
       if (masterRefs.length < 2) { alert("Document needs at least two parents/masters."); return null; }
-      var srcIdxP = ddSrcParent && ddSrcParent.selection ? ddSrcParent.selection.index : 0;
-      var dstIdxP = ddDstParent && ddDstParent.selection ? ddDstParent.selection.index : (masterRefs.length > 1 ? 1 : 0);
+      if (!ddSrcParent || !ddSrcParent.selection || !ddDstParent || !ddDstParent.selection) {
+        alert("Please select both source and destination parents/masters.");
+        return null;
+      }
+      var srcIdxP = ddSrcParent.selection.index;
+      var dstIdxP = ddDstParent.selection.index;
       return {
         op: "parent",
         srcIdx: srcIdxP,
@@ -251,6 +294,7 @@
 
     app.doScript(function () {
       var movedCount = 0, skippedLocked = 0, guideMoves = 0;
+      var movedItems = [];
 
       var items = getAllPageItems(doc, opts.includeMasters);
       for (var i = 0; i < items.length; i++) {
@@ -259,7 +303,7 @@
           if (it.isValid && "itemLayer" in it && it.itemLayer === srcLayer) {
             var wasLocked = false; try { wasLocked = it.locked; } catch (e) {}
             var ok = moveItemToLayer(it, dstLayer, opts.skipLocked, srcLayer);
-            if (ok) movedCount++; else if (opts.skipLocked && wasLocked) skippedLocked++;
+            if (ok) { movedCount++; movedItems.push(it); } else if (opts.skipLocked && wasLocked) skippedLocked++;
           }
         } catch (e1) {}
       }
@@ -279,13 +323,32 @@
         }
       }
 
+      // Adjust stacking order of moved items according to layer order
+      try {
+        var srcAboveDst = (opts.srcIdx < opts.dstIdx);
+        for (var k = 0; k < movedItems.length; k++) {
+          var m = movedItems[k];
+          if (!m || !m.isValid) continue;
+          try {
+            var prevL = false; try { prevL = m.locked; } catch (eL) {}
+            if (prevL) { try { m.locked = false; } catch (eu) {} }
+            try {
+              if (srcAboveDst) m.bringToFront(); else m.sendToBack();
+            } catch (ez) {}
+            if (prevL) { try { m.locked = true; } catch (er) {} }
+          } catch (eAdj) {}
+        }
+      } catch (eOrder) {}
+
       // Attempt to delete source layer
       var lines = [];
       lines.push("Moved " + formatNumber(movedCount) + " object(s)" + (opts.includeGuides ? (" and " + formatNumber(guideMoves) + " guide(s)") : "") + ".");
       if (opts.skipLocked && skippedLocked) lines.push("Skipped " + formatNumber(skippedLocked) + " locked item(s).");
       try {
+        var deletedLayerName = "";
+        try { deletedLayerName = srcLayer && srcLayer.isValid ? srcLayer.name : "(unknown)"; } catch (_eName) { deletedLayerName = "(unknown)"; }
         srcLayer.remove();
-        lines.push("Deleted layer: " + srcLayer.name);
+        lines.push("Deleted layer: " + deletedLayerName);
         notify("Layer replacement completed.", lines);
       } catch (eDel) {
         lines.push("However, the layer could not be deleted. There may still be locked or special items on it.");

@@ -27,7 +27,7 @@
 
     if (action === "show") {
         while (true) {
-            // Prepare GREP and find all matches across targets (do not select; list by page)
+            // Find all matches across targets and display by page
             var matches = findMatchesAcrossTargets(pattern, targets);
 
             var count = matches ? matches.length : 0;
@@ -66,7 +66,7 @@
             var pagesWithHits = items.length;
 
             var summaryText = formatNumber(count) + " occurrence" + (count === 1 ? "" : "s") + " across " + pagesWithHits + " page" + (pagesWithHits === 1 ? "" : "s") + ".";
-            var goBack = showOccurrencesDialog(summaryText, lines.join("\n"));
+            var goBack = showOccurrencesDialog(summaryText, items);
 
             if (goBack) {
                 var sel = showMainDialog();
@@ -92,48 +92,102 @@
         return;
     }
 
-    // Helper: show combined main dialog (Options + Scope). Returns {action, scope} or null
+    // Helper: show combined main dialog (Scope only). Returns {action, scope} or null
     function showMainDialog() {
         var dialog = new Window("dialog", "Explicit Numeric Prefixes");
         dialog.orientation = "column";
         dialog.alignChildren = "left";
         dialog.margins = 16;
 
-        var msg = dialog.add("statictext", undefined, "Choose how to handle explicit numeric prefixes (e.g., '1. ' at the start of a paragraph)");
+        var msg = dialog.add("statictext", undefined, "Manage explicit numeric prefixes (e.g., '1. ' at the start of a paragraph)");
         msg.characters = 70;
 
-        // Options and Scope side-by-side
-        var row = dialog.add("group");
-        row.orientation = "row"; row.alignChildren = "top"; row.spacing = 12;
+        // Scope panel
+        var scopePanel = dialog.add("panel", undefined, "Scope");
+        scopePanel.orientation = "column"; scopePanel.alignChildren = "left"; scopePanel.margins = 12;
 
-        // Options panel (left)
-        var optPanel = row.add("panel", undefined, "Options");
-        optPanel.orientation = "column"; optPanel.alignChildren = "left"; optPanel.margins = 12; optPanel.spacing = 6;
-        var rbShow = optPanel.add("radiobutton", undefined, "List occurrences");
-        var rbRemove = optPanel.add("radiobutton", undefined, "Remove all");
-        rbShow.value = true; // default action
+        // Determine selection context first
+        var hasTextFrameSelection = false;
+        var inTextContext = false;            // true for any text context, including caret
+        var hasRangedTextSelection = false;   // true only when there is an actual text range selection (not caret)
+        try {
+            if (app.selection && app.selection.length > 0) {
+                for (var _i = 0; _i < app.selection.length; _i++) {
+                    var _sel = app.selection[_i];
+                    try {
+                        var ctor = String(_sel && _sel.constructor && _sel.constructor.name);
+                        // Text context detection
+                        if (ctor === "InsertionPoint" || ctor === "Text" || ctor === "Word" || ctor === "Character" || ctor === "TextStyleRange" || ctor === "Paragraph" || ctor === "Line") {
+                            inTextContext = true;
+                        }
+                        // Ranged text selection (exclude caret and frame selections)
+                        if (ctor !== "InsertionPoint" && ctor !== "TextFrame") {
+                            var t = null;
+                            try { if (_sel && _sel.texts && _sel.texts.length > 0) t = _sel.texts[0]; } catch (eT) { t = null; }
+                            try {
+                                if (t && t.characters && t.characters.length && t.characters.length > 0) {
+                                    hasRangedTextSelection = true;
+                                }
+                            } catch (eLen) {}
+                        }
+                        // Consider as text frame if it's a TextFrame or exposes text/lines
+                        if (ctor === "TextFrame") {
+                            hasTextFrameSelection = true;
+                        } else if (_sel && _sel.texts && _sel.texts.length > 0 && _sel.lines) {
+                            hasTextFrameSelection = true;
+                        }
+                    } catch (e) {}
+                }
+            }
+        } catch (e0) {}
 
-        // Scope panel (right)
-        var scopePanel = row.add("panel", undefined, "Scope");
-        scopePanel.orientation = "column"; scopePanel.alignChildren = "left"; scopePanel.margins = 12; scopePanel.spacing = 6;
+        // Order: All Documents, Document, Page, Story, Frame, Selected Text
         var rbAllDocs = scopePanel.add("radiobutton", undefined, "All Documents");
-        var rbDoc = scopePanel.add("radiobutton", undefined, "Document (active)");
-        var rbStory = scopePanel.add("radiobutton", undefined, "Story (from selection)");
-        var rbPage = scopePanel.add("radiobutton", undefined, "Page (active)");
-        var rbSelection = scopePanel.add("radiobutton", undefined, "Selection");
-        rbDoc.value = true; // default scope per requirement
+        var rbDoc = scopePanel.add("radiobutton", undefined, "Document");
+        var rbPage = scopePanel.add("radiobutton", undefined, "Page");
+        var rbStory = scopePanel.add("radiobutton", undefined, "Story");
+        var rbFrame = scopePanel.add("radiobutton", undefined, "Frame");
+        var rbSelection = scopePanel.add("radiobutton", undefined, "Selected Text");
 
-        // Bottom-right buttons: Cancel then Run
+        // Defaults
+        rbDoc.value = true; // default scope
+
+        // Enablement rules: show but disable if not applicable
+        rbSelection.enabled = hasRangedTextSelection; // Disable for caret-only selection
+        rbStory.enabled = (inTextContext || hasTextFrameSelection);
+        rbFrame.enabled = (inTextContext || hasTextFrameSelection);
+
+        // Ensure no disabled option is selected
+        if (!rbSelection.enabled && rbSelection.value) { rbSelection.value = false; rbDoc.value = true; }
+        if (!rbStory.enabled && rbStory.value) { rbStory.value = false; rbDoc.value = true; }
+        if (!rbFrame.enabled && rbFrame.value) { rbFrame.value = false; rbDoc.value = true; }
+
+        // Bottom buttons: Cancel, Show List, and Run
         var g = dialog.add("group");
         g.alignment = "right";
         var cancelBtn = g.add("button", undefined, "Cancel");
+        var showBtn = g.add("button", undefined, "Show List");
         var runBtn = g.add("button", undefined, "Run", {name: "ok"});
 
         var result = null;
+        
+        function getScope() {
+            var scope = "doc"; // default
+            if (rbAllDocs.value) scope = "allDocs";
+            else if (rbDoc.value) scope = "doc";
+            else if (rbPage.value) scope = "page";
+            else if (rbStory.value) scope = "story";
+            else if (rbFrame.value) scope = "frame";
+            else if (rbSelection.value) scope = "selection";
+            return scope;
+        }
+        
         runBtn.onClick = function(){
-            var action = rbRemove.value ? "remove" : "show";
-            var scope = rbAllDocs.value ? "allDocs" : (rbDoc.value ? "doc" : (rbStory.value ? "story" : (rbPage.value ? "page" : "selection")));
-            result = { action: action, scope: scope };
+            result = { action: "remove", scope: getScope() };
+            dialog.close(1);
+        };
+        showBtn.onClick = function(){
+            result = { action: "show", scope: getScope() };
             dialog.close(1);
         };
         cancelBtn.onClick = function(){ result = null; dialog.close(0); };
@@ -143,20 +197,63 @@
         return result;
     }
 
-    // Helper: show occurrences dialog with Back and Close; returns true if Back was pressed
-    function showOccurrencesDialog(summaryText, itemsText) {
+    // Helper: show occurrences dialog with two-column layout; returns true if Back was pressed
+    function showOccurrencesDialog(summaryText, items) {
         var w = new Window("dialog", "Occurrences by Page");
         w.orientation = "column";
         w.alignChildren = "fill";
         w.margins = 16;
         var summary = w.add("statictext", undefined, summaryText);
         summary.characters = 70;
-        var note = w.add("statictext", undefined, "Note: In 'Page N (M): C' — N is the page name/label; M is the page's order in the document; C is the number of occurrences on that page.");
-        note.characters = 70;
-        var box = w.add("edittext", undefined, itemsText, {multiline:true, scrolling:true});
-        box.readonly = true;
-        box.preferredSize.width = 420;
-        box.preferredSize.height = 260;
+        
+        // Create container for the two-column layout
+        var listContainer = w.add("panel", undefined, "Page Occurrences");
+        listContainer.orientation = "column";
+        listContainer.alignChildren = "fill";
+        listContainer.margins = 12;
+        listContainer.preferredSize.width = 420;
+        listContainer.preferredSize.height = 280;
+        
+        // Header row
+        var headerGroup = listContainer.add("group");
+        headerGroup.orientation = "row";
+        headerGroup.alignChildren = "top";
+        var pageHeader = headerGroup.add("statictext", undefined, "Page");
+        pageHeader.preferredSize.width = 280;
+        pageHeader.graphics.font = ScriptUI.newFont("dialog", "Bold", 12);
+        var countHeader = headerGroup.add("statictext", undefined, "Count");
+        countHeader.preferredSize.width = 80;
+        countHeader.graphics.font = ScriptUI.newFont("dialog", "Bold", 12);
+        countHeader.justify = "right";
+        
+        // Separator line
+        var separator = listContainer.add("panel");
+        separator.preferredSize.height = 2;
+        
+        // Scrollable list container
+        var scrollPanel = listContainer.add("panel");
+        scrollPanel.orientation = "column";
+        scrollPanel.alignChildren = "fill";
+        scrollPanel.preferredSize.height = 200;
+        
+        // Add rows for each item
+        for (var i = 0; i < items.length; i++) {
+            var item = items[i];
+            var pageLabel = (item.index >= 0) ? ("Page " + item.name + " (" + (item.index + 1) + ")") : item.name;
+            
+            var rowGroup = scrollPanel.add("group");
+            rowGroup.orientation = "row";
+            rowGroup.alignChildren = "top";
+            rowGroup.margins = [0, 2, 0, 2];
+            
+            var pageText = rowGroup.add("statictext", undefined, pageLabel);
+            pageText.preferredSize.width = 280;
+            
+            var countText = rowGroup.add("statictext", undefined, formatNumber(item.count));
+            countText.preferredSize.width = 80;
+            countText.justify = "right";
+        }
+        
         var g = w.add("group");
         g.alignment = "right";
         var backBtn = g.add("button", undefined, "Back");
@@ -204,37 +301,6 @@
         alert("Removal completed.\n" + formatNumber(count) + " occurrence" + (count === 1 ? " was" : "s were") + " removed.");
     }
 
-    // Scope dialog and target resolution
-    function showScopeDialog() {
-        var dlg = new Window("dialog", "Scope");
-        dlg.orientation = "column";
-        dlg.alignChildren = "left";
-        dlg.margins = 16;
-        dlg.add("statictext", undefined, "Choose where to apply the action:");
-        var panel = dlg.add("panel", undefined, "Scope");
-        panel.orientation = "column"; panel.alignChildren = "left"; panel.margins = 12;
-        var rbAllDocs = panel.add("radiobutton", undefined, "All Documents");
-        var rbDoc = panel.add("radiobutton", undefined, "Document (active)");
-        var rbStory = panel.add("radiobutton", undefined, "Story (from selection)");
-        var rbPage = panel.add("radiobutton", undefined, "Page (active)");
-        var rbSelection = panel.add("radiobutton", undefined, "Selection");
-        rbDoc.value = true; // default
-        var g = dlg.add("group"); g.alignment = "right";
-        var ok = g.add("button", undefined, "OK");
-        var cancel = g.add("button", undefined, "Cancel");
-        var result = null;
-        ok.onClick = function(){
-            if (rbAllDocs.value) result = "allDocs";
-            else if (rbDoc.value) result = "doc";
-            else if (rbStory.value) result = "story";
-            else if (rbPage.value) result = "page";
-            else if (rbSelection.value) result = "selection";
-            dlg.close(1);
-        };
-        cancel.onClick = function(){ result = null; dlg.close(0); };
-        var shown = dlg.show();
-        return (shown === 1) ? result : null;
-    }
 
     function resolveScopeTargets(scope) {
         var tgts = [];
@@ -263,25 +329,61 @@
             var page = null;
             try { if (app.layoutWindows && app.layoutWindows.length > 0) page = app.layoutWindows[0].activePage; else if (app.activeWindow) page = app.activeWindow.activePage; } catch (e4) {}
             if (!page) { alert("No active page. Open a layout window and try again."); return []; }
-            var seen = {};
             try {
                 var frames = page.textFrames ? page.textFrames.everyItem().getElements() : [];
                 for (var i = 0; i < frames.length; i++) {
-                    var st = null; try { st = frames[i].parentStory; } catch (e5) {}
-                    if (st && st.isValid) { var sid = ""; try { sid = String(st.id); } catch (e6) { sid = String(i); } if (!seen[sid]) { seen[sid] = true; tgts.push(st); } }
+                    try {
+                        var tf = frames[i];
+                        var lines = null;
+                        try { lines = tf && tf.lines ? tf.lines.everyItem().getElements() : []; } catch (ee0) { lines = []; }
+                        if (lines && lines.length > 0) {
+                            var firstChar = null, lastChar = null;
+                            try { firstChar = lines[0].characters[0]; } catch (ee1) {}
+                            try { var lastLine = lines[lines.length - 1]; lastChar = lastLine.characters[-1]; } catch (ee2) {}
+                            if (firstChar && lastChar) {
+                                var range = null;
+                                try { range = tf.parentStory.texts.itemByRange(firstChar, lastChar); } catch (ee3) {}
+                                if (range && range.isValid) tgts.push(range);
+                            }
+                        }
+                    } catch (e5) {}
                 }
             } catch (e7) {}
             if (tgts.length === 0) alert("No text found on the active page.");
             return tgts;
         }
+        if (scope === "frame") {
+            if (!app.selection || app.selection.length === 0) { alert("Select one or more frames."); return []; }
+            for (var s = 0; s < app.selection.length; s++) {
+                var it = app.selection[s];
+                var tf = null;
+                try { var ctor = String(it && it.constructor && it.constructor.name); if (ctor === "TextFrame") tf = it; } catch (ef) {}
+                if (!tf) { try { if (it && it.texts && it.texts.length > 0 && it.lines) tf = it; } catch (ef2) {} }
+                if (tf) {
+                    var lines = null;
+                    try { lines = tf.lines ? tf.lines.everyItem().getElements() : []; } catch (ee0) { lines = []; }
+                    if (lines && lines.length > 0) {
+                        var firstChar = null, lastChar = null;
+                        try { firstChar = lines[0].characters[0]; } catch (ee1) {}
+                        try { var lastLine = lines[lines.length - 1]; lastChar = lastLine.characters[-1]; } catch (ee2) {}
+                        if (firstChar && lastChar) {
+                            var range = null;
+                            try { range = tf.parentStory.texts.itemByRange(firstChar, lastChar); } catch (ee3) {}
+                            if (range && range.isValid) tgts.push(range);
+                        }
+                    }
+                }
+            }
+            if (tgts.length === 0) alert("No text found in the selected frame(s).");
+            return tgts;
+        }
         if (scope === "selection") {
-            if (!app.selection || app.selection.length === 0) { alert("Make a selection first."); return []; }
+            if (!app.selection || app.selection.length === 0) { alert("Make a text selection first."); return []; }
             for (var s = 0; s < app.selection.length; s++) {
                 var item = app.selection[s];
                 var txt = null;
                 try { if (item && item.texts && item.texts.length > 0) txt = item.texts[0]; } catch (e8) {}
-                if (!txt) { try { if (item && item.parentStory && item.parentStory.isValid) txt = item.texts && item.texts.length > 0 ? item.texts[0] : item.parentStory; } catch (e9) {}
-                }
+                // Do not escalate to parentStory in Selection scope; require actual text
                 if (txt && txt.isValid) tgts.push(txt);
             }
             if (tgts.length === 0) alert("The selection does not contain editable text.");

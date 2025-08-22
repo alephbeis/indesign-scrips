@@ -168,3 +168,9 @@ This script follows the project's engineering best practices and is compatible w
 - Locked item handling may vary depending on InDesign version and security settings
 - Master spread operations affect all pages using those masters
 - Some object relationships may need manual adjustment after large moves
+
+## UI Requirement: Manual Selection for Layers and Masters
+
+- The Source and Destination dropdowns for both Layer and Parent/Master operations are no longer prefilled.
+- The OK/Run button stays disabled until you select both a Source and a Destination for the currently chosen operation.
+- If you attempt to run without completing both selections, the dialog will prompt you to select both before proceeding.

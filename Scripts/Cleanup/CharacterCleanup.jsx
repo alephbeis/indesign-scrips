@@ -65,7 +65,7 @@
         ["\\r{2,}\\z", "\\r"]
     ];
 
-    // Build UI dialog with multi-select and an `All` option
+    // Build UI dialog with side-by-side layout
     var dlg = new Window("dialog", "Character Cleanup");
     dlg.orientation = "column";
     dlg.alignChildren = "left";
@@ -73,29 +73,74 @@
 
     dlg.add("statictext", undefined, "Select the cleanup actions to run:");
 
-    var allCb = dlg.add("checkbox", undefined, "All");
-    var panel = dlg.add("panel", undefined, "Options");
-    panel.orientation = "column";
-    panel.alignChildren = "left";
-    panel.margins = 12;
-    panel.spacing = 6;
+    // Options and Scope side-by-side
+    var row = dlg.add("group");
+    row.orientation = "row";
+    row.alignChildren = "top";
+    row.spacing = 12;
 
-    var cbFix = panel.add("checkbox", undefined, "Fix marks order (dagesh before vowels)");
-    var cbNorm = panel.add("checkbox", undefined, "Normalize Hebrew presentation forms (letters with marks)");
-    var cbDbl = panel.add("checkbox", undefined, "Remove double spaces");
-    var cbTrail = panel.add("checkbox", undefined, "Trim trailing paragraph marks at end of story (leave one)");
+    // Left panel: Main options
+    var optionsPanel = row.add("panel", undefined, "Options");
+    optionsPanel.orientation = "column";
+    optionsPanel.alignChildren = "left";
+    optionsPanel.margins = 12;
+    optionsPanel.spacing = 6;
 
-    // Scope chooser
-    var scopePanel = dlg.add("panel", undefined, "Scope");
+    var allCb = optionsPanel.add("checkbox", undefined, "All");
+    var cbFix = optionsPanel.add("checkbox", undefined, "Fix marks order (dagesh before vowels)");
+    var cbNorm = optionsPanel.add("checkbox", undefined, "Normalize Hebrew presentation forms (letters with marks)");
+    var cbDbl = optionsPanel.add("checkbox", undefined, "Remove double spaces");
+    var cbTrail = optionsPanel.add("checkbox", undefined, "Trim trailing paragraph marks at end of story (leave one)");
+
+    // Right panel: Scope chooser
+    var scopePanel = row.add("panel", undefined, "Scope");
     scopePanel.orientation = "column";
     scopePanel.alignChildren = "left";
     scopePanel.margins = 12;
     scopePanel.spacing = 6;
+
+    // Determine selection context first
+    var hasTextFrameSelection = false;
+    var inTextContext = false;            // true for any text context, including caret
+    var hasRangedTextSelection = false;   // true only when there is an actual text range selection (not caret)
+    try {
+        if (app.selection && app.selection.length > 0) {
+            for (var _i = 0; _i < app.selection.length; _i++) {
+                var _sel = app.selection[_i];
+                try {
+                    var ctor = String(_sel && _sel.constructor && _sel.constructor.name);
+                    // Text context detection
+                    if (ctor === "InsertionPoint" || ctor === "Text" || ctor === "Word" || ctor === "Character" || ctor === "TextStyleRange" || ctor === "Paragraph" || ctor === "Line") {
+                        inTextContext = true;
+                    }
+                    // Ranged text selection (exclude caret and frame selections)
+                    if (ctor !== "InsertionPoint" && ctor !== "TextFrame") {
+                        var t = null;
+                        try { if (_sel && _sel.texts && _sel.texts.length > 0) t = _sel.texts[0]; } catch (eT) { t = null; }
+                        try {
+                            if (t && t.characters && t.characters.length && t.characters.length > 0) {
+                                hasRangedTextSelection = true;
+                            }
+                        } catch (eLen) {}
+                    }
+                    // Consider as text frame if it's a TextFrame or exposes text/lines
+                    if (ctor === "TextFrame") {
+                        hasTextFrameSelection = true;
+                    } else if (_sel && _sel.texts && _sel.texts.length > 0 && _sel.lines) {
+                        hasTextFrameSelection = true;
+                    }
+                } catch (e) {}
+            }
+        }
+    } catch (e0) {}
+
+    // Order: All Documents, Document, Page, Story, Frame, Selected Text
     var rbAllDocs = scopePanel.add("radiobutton", undefined, "All Documents");
-    var rbDoc = scopePanel.add("radiobutton", undefined, "Document (active)");
-    var rbStory = scopePanel.add("radiobutton", undefined, "Story (from selection)");
-    var rbPage = scopePanel.add("radiobutton", undefined, "Page (active)");
-    var rbSelection = scopePanel.add("radiobutton", undefined, "Selection");
+    var rbDoc = scopePanel.add("radiobutton", undefined, "Document");
+    var rbPage = scopePanel.add("radiobutton", undefined, "Page");
+    var rbStory = scopePanel.add("radiobutton", undefined, "Story");
+    var rbFrame = scopePanel.add("radiobutton", undefined, "Frame");
+    var rbSelection = scopePanel.add("radiobutton", undefined, "Selected Text");
 
     // Defaults
     allCb.value = true;
@@ -104,6 +149,16 @@
     cbDbl.value = true;
     cbTrail.value = true;
     rbDoc.value = true; // default scope per requirement
+
+    // Enablement rules: show but disable if not applicable
+    rbSelection.enabled = hasRangedTextSelection; // Disable for caret-only selection
+    rbStory.enabled = (inTextContext || hasTextFrameSelection);
+    rbFrame.enabled = (inTextContext || hasTextFrameSelection);
+
+    // Ensure no disabled option is selected
+    if (!rbSelection.enabled && rbSelection.value) { rbSelection.value = false; rbDoc.value = true; }
+    if (!rbStory.enabled && rbStory.value) { rbStory.value = false; rbDoc.value = true; }
+    if (!rbFrame.enabled && rbFrame.value) { rbFrame.value = false; rbDoc.value = true; }
 
     // Helpers to sync the `All` checkbox
     function syncAllFromChildren() {
@@ -352,6 +407,32 @@
             if (tgts.length === 0) {
                 alert("No text found on the active page.");
             }
+            return tgts;
+        }
+        // Frame (selected frames)
+        if (rbFrame.value) {
+            if (!app.selection || app.selection.length === 0) { alert("Select one or more frames."); return []; }
+            for (var s = 0; s < app.selection.length; s++) {
+                var it = app.selection[s];
+                var tf = null;
+                try { var ctor = String(it && it.constructor && it.constructor.name); if (ctor === "TextFrame") tf = it; } catch (ef) {}
+                if (!tf) { try { if (it && it.texts && it.texts.length > 0 && it.lines) tf = it; } catch (ef2) {} }
+                if (tf) {
+                    var lines = null;
+                    try { lines = tf.lines ? tf.lines.everyItem().getElements() : []; } catch (ee0) { lines = []; }
+                    if (lines && lines.length > 0) {
+                        var firstChar = null, lastChar = null;
+                        try { firstChar = lines[0].characters[0]; } catch (ee1) {}
+                        try { var lastLine = lines[lines.length - 1]; lastChar = lastLine.characters[-1]; } catch (ee2) {}
+                        if (firstChar && lastChar) {
+                            var range = null;
+                            try { range = tf.parentStory.texts.itemByRange(firstChar, lastChar); } catch (ee3) {}
+                            if (range && range.isValid) tgts.push(range);
+                        }
+                    }
+                }
+            }
+            if (tgts.length === 0) alert("No text found in the selected frame(s).");
             return tgts;
         }
         // Selection
