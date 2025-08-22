@@ -220,8 +220,14 @@ Usage:
         try {
             var p = new Window("palette", "Exporting PDFs");
             p.orientation = "column"; p.alignChildren = ["fill", "top"]; p.margins = 16; p.spacing = 8;
+            
+            // Widen the palette so long labels are fully visible
+            try { p.preferredSize.width = 520; } catch(_sz0) {}
+            
             var lbl = p.add("statictext", undefined, "Starting…");
+            try { lbl.preferredSize.width = 500; } catch(_sz1) {}
             var bar = p.add("progressbar", undefined, 0, 100);
+            try { bar.preferredSize.width = 500; } catch(_sz2) {}
             bar.value = 0;
             p.show();
             return {
