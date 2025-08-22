@@ -31,7 +31,7 @@ Notes:
 
 - During long-running operations, show a small progress window to provide feedback and (when applicable) an abort option.
 - Size: ensure the window is large enough to display full action titles without truncation.
-- Recommended minimum size: 520 × 200 px. This has proven sufficient to show typical action titles (e.g., "Exporting current document as PDF (spread 1/20)") without clipping.
+- Recommended minimum size: 520 px width and add 200px height if there is more vertical content. This has proven sufficient to show typical action titles.
 - Larger sizes are fine; avoid going smaller to prevent text truncation.
 
 Implementation notes (ScriptUI / ExtendScript):

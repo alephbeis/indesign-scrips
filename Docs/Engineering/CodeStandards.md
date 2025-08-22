@@ -47,7 +47,10 @@ Scripts often flip global state (units, find/change prefs, redraw). **Always res
 const { app, MeasurementUnits, UndoModes } = require('indesign');
 
 function runWithUndo(name, fn) {
-  return app.doScript(fn, UndoModes.ENTIRE_SCRIPT, undefined, undefined, name);
+  // Correct signature for function callbacks:
+  // app.doScript(function, [arguments], [language], [undoMode], [undoName])
+  // We pass no arguments and no language; set undoMode and name.
+  return app.doScript(fn, undefined, undefined, UndoModes.ENTIRE_SCRIPT, name);
 }
 
 function exampleSafeBlock() {
