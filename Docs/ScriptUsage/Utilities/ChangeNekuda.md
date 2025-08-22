@@ -1,56 +1,74 @@
-# Change Nekuda - Unified Script
+# Change Nekuda - Enhanced Script
 
 ## Overview
 
+The Change Nekuda script provides a flexible interface for changing any Hebrew vowel mark (Nekuda) to any other. Unlike the previous version with hardcoded transformations, this enhanced version gives users complete flexibility by:
+
+- **Change From**: Dynamically lists all Nekudos found in the current document with occurrence counts
+- **Change To**: Shows all available Nekudos for replacement
+- **Full Flexibility**: Allows any combination of Nekuda changes
 
 ## Usage
 
-1. Open an InDesign document
+1. Open an InDesign document containing Hebrew text with vowel marks
 2. Run the `ChangeNekuda.jsx` script from the Scripts panel
-3. Select your desired transformation from the dialog
-4. Choose the scope (Document, Selection, or All Documents)
-5. Click "Run" to execute the transformation
+3. The script will automatically scan the document for existing Nekudos
+4. In the "Change From" dropdown, select the Nekuda you want to replace (shows only those found in document)
+5. In the "Change To" dropdown, select the target Nekuda (shows all available options). Note: this dropdown starts with no selection and requires you to choose an option.
+6. Choose the scope (Document, Selection, Story, Page, Frame, or All Documents)
+7. Click "Run" to execute the transformation. If selections are missing, you'll be prompted and the dialog remains open; otherwise, the dialog closes and the script runs, showing a completion message.
 
-## Available Transformations
+## Available Nekudos
 
-The script provides the following Hebrew vowel transformations:
+The script supports the following Nekudos (in order), only these are supported by the script:
 
-1. **Kamatz → Pasach** - Change Kamatz (קמץ) to Pasach (פתח)
-2. **Pasach → Tzeirei** - Change Pasach (פתח) to Tzeirei (צירי)
-3. **Tzeirei → Segol** - Change Tzeirei (צירי) to Segol (סגול)
-4. **Segol → Sheva** - Change Segol (סגול) to Sheva (שוא)
-5. **Sheva → Chirik Chaser** - Change Sheva (שוא) to Chirik Chaser (חיריק חסר)
-6. **Chirik Chaser → Chirik Male** - Change Chirik Chaser (חיריק חסר) to Chirik Male (חיריק מלא)
-7. **Chirik Male → Kubutz** - Change Chirik Male (חיריק מלא) to Kubutz (קבוץ)
-8. **Kubutz → Shuruk** - Change Kubutz (קבוץ) to Shuruk (שורוק)
-9. **Shuruk → Cholam Chaser** - Change Shuruk (שורוק) to Cholam Chaser (חולם חסר)
-10. **Cholam Chaser → Cholam Male** - Change Cholam Chaser (חולם חסר) to Cholam Male (חולם מלא)
-11. **Cholam Male → Pasach** - Change Cholam Male (חולם מלא) to Pasach (פתח)
+1. **Kamatz** (קמץ) - \u05B8
+2. **Pasach** (פתח) - \u05B7
+3. **Tzeirei** (צירי) - \u05B5
+4. **Segol** (סגול) - \u05B6
+5. **Sheva** (שוא) - \u05B0
+6. **Cholam Chaser** (חולם חסר) - \u05B9
+7. **Cholam Malei** (חולם מלא) - \u05D5\u05B9
+8. **Chirik Chaser** (חיריק חסר) - \u05B4
+9. **Chirik Malei** (חיריק מלא) - \u05B4\u05D9
+10. **Kubutz** (קובוץ) - \u05BB
+11. **Shuruk** (שורוק) - \u05D5\u05BC
+12. **Chataf Kamatz** (חטף קמץ) - \u05B3
+13. **Chataf Pasach** (חטף פתח) - \u05B2
+14. **Chataf Segol** (חטף סגול) - \u05B1
+15. **Shin Dot** (נקודת שין) - \u05C1
+16. **Sin Dot** (נקודת שין שמאלית) - \u05C2
 
 ## Features
 
-- **Unified Interface**: Single dialog for all transformations
-- **Scope Selection**: Choose between All Documents, Document (active), Story (from selection), Page (active), or Selection
-- **Proper Undo**: Each transformation is wrapped in a single undo step
+- **Dynamic Scanning**: Automatically scans document to show only Nekudos that are actually present
+- **Flexible Selection**: Change From dropdown shows found Nekudos with occurrence counts; Change To shows all available options
+-
+- **Full Unicode Support**: Works with all Hebrew vowel marks and diacritics using proper Unicode characters
+- **Scope Selection**: Choose between Document (active), Selection, Story, Page, or All Documents
+- **Proper Undo**: Each change operation is wrapped in a single undo step
 - **Performance Optimized**: Disables redraw during operations for better performance
-- **Error Handling**: Comprehensive error handling with user-friendly messages
-- **Best Practices**: Follows project coding standards and UI conventions
+- **Error Handling**: Comprehensive error handling with user-friendly messages and confirmations
+- **Smart Validation**: Prevents identical source/target selections and validates user input
 
 ## Technical Details
 
-Each transformation performs both Hebrew text replacements and Unicode character replacements:
-- Hebrew text names (e.g., "פתח" → "צירי")
-- Unicode vowel marks (e.g., \x{05B7} → \x{05B5})
+The enhanced script uses a comprehensive definition system for all Hebrew vowel marks:
+- Each Nekuda includes Hebrew name, Unicode escape sequence, and character representation
+- Document scanning uses GREP search to count occurrences of each Unicode character
+- Changes are performed using Unicode-based find/replace for precise character matching
 
-The script maintains the same find/change options as the original scripts:
+Key improvements over the original version:
+- Dynamic content detection instead of hardcoded transformations
+- User-driven selection instead of predefined pairs
+- Real-time document analysis with occurrence counting
+- Enhanced UI with preview functionality
+
+The script maintains robust find/change options:
 - Includes footnotes, hidden layers, and master pages
 - Includes locked layers and stories for find operations
-- Uses GREP find/replace for pattern matching
-
-## Archive
-
-The original individual scripts (00-09) have been preserved in the `Archive/` directory for reference and potential rollback if needed.
+- Uses GREP find/replace for reliable Unicode pattern matching
 
 ## Compatibility
 
-This script follows the project's engineering best practices and is compatible with modern InDesign versions. It uses ExtendScript (JSX) format for maximum compatibility across InDesign releases.
+This enhanced script follows the project's engineering best practices and is compatible with modern InDesign versions. It uses ExtendScript (JSX) format for maximum compatibility across InDesign releases.
