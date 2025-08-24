@@ -13,7 +13,7 @@ To ensure consistency across utilities, use these general conventions while allo
 - Layout patterns:
   - Stacked (column): Options panel on top, Scope panel below — recommended for dialogs with many or complex options (e.g., CharacterCleanup).
   - Side-by-side (row): Options panel on the left and Scope panel on the right — recommended for compact dialogs with short option lists (e.g., RemoveNumericPrefixes, DeleteHebrewMarks).
-  - Dialog margins ~16 px; panel margins ~12 px; vertical spacing ~6–10 px; align children left.
+  - Use an 8px grid for layout. Typical values: dialog margins 16 px; panel margins 12 px (half-step); vertical spacing 8–12 px; align children left. Half-sizes (4 px) may be used when finer spacing is needed.
 - Bottom action buttons:
   - Right-aligned, ordered: "Cancel" then "Run" as the primary action (default button role `{ name: 'ok' }` when applicable).
   - Additional buttons are allowed when they are primary actions essential to the flow (e.g., Back, Preview, Close for informational dialogs). Avoid using the footer as a general area for secondary/tertiary actions; place such controls within the dialog body.
@@ -44,7 +44,7 @@ Example:
 var win = new Window('palette', 'Working…');
 win.orientation = 'column';
 win.margins = 16;
-win.spacing = 10;
+win.spacing = 12; // 8px grid with half-step example
 
 // Ensure sufficient size to avoid truncation
 win.preferredSize = { width: 520, height: 200 }; // or: win.bounds = [0, 0, 520, 200];

@@ -51,8 +51,8 @@
     var dlg = new Window("dialog", "Replace: Layer or Parent");
     dlg.orientation = "column";
     dlg.alignChildren = "fill";
-    dlg.spacing = 10;
-    dlg.margins = 16;
+    dlg.spacing = 12; // 8px grid: prefer 12px spacing for vertical rhythm
+    dlg.margins = 16; // standard dialog margins
 
     var titleGroup = dlg.add("group");
     titleGroup.add("statictext", undefined, "Choose what to replace and configure options:");
@@ -61,7 +61,7 @@
     var opPanel = dlg.add("panel", undefined, "Operation");
     opPanel.orientation = "column";
     opPanel.alignChildren = "left";
-    opPanel.margins = 16;
+    opPanel.margins = 12; // standard panel margins
     var rbLayer = opPanel.add("radiobutton", undefined, "Replace a Layer (move items, then delete layer)");
     var rbParent = opPanel.add("radiobutton", undefined, "Replace a Parent/Master (move master items, then delete parent)");
     rbLayer.value = (layerRefs.length >= 2); // default if possible
@@ -71,7 +71,7 @@
     var optionsPanel = dlg.add("panel", undefined, "Options");
     optionsPanel.orientation = "stack"; // overlay groups; only one is visible
     optionsPanel.alignChildren = ["fill", "top"];
-    optionsPanel.margins = 16;
+    optionsPanel.margins = 12; // standard panel margins
 
     // Layer options group
     var layerGroup = optionsPanel.add("group");
@@ -154,9 +154,9 @@
     dlg.onShow = function () { updatePanels(); };
 
     var btns = dlg.add("group");
-    btns.alignment = "center";
-    var btnOK = btns.add("button", undefined, "OK");
+    btns.alignment = "right"; // Right-aligned per UX conventions
     var btnCancel = btns.add("button", undefined, "Cancel");
+    var btnOK = btns.add("button", undefined, "Run", {name: "ok"});
 
     // Disable OK until both source and destination are selected for the active operation
     btnOK.enabled = false;
