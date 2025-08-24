@@ -1,6 +1,6 @@
 /*
  CharacterCleanup: consolidated GREP replacements into a single array and loop.
- Adds a multi-select dialog (with "All") to choose what to clean and a confirmation before running.
+ Adds a multi-select dialog (with "All") to choose what to clean.
  Preserves behavior and order. Adds a guard for no open document. Resets GREP prefs safely.
 */
 
@@ -91,6 +91,7 @@
     var cbNorm = optionsPanel.add("checkbox", undefined, "Normalize Hebrew presentation forms (letters with marks)");
     var cbDbl = optionsPanel.add("checkbox", undefined, "Remove double spaces");
     var cbTrail = optionsPanel.add("checkbox", undefined, "Trim trailing paragraph marks at end of story (leave one)");
+    var cbGuides = optionsPanel.add("checkbox", undefined, "Remove non-master guides");
 
     // Right panel: Scope chooser
     var scopePanel = row.add("panel", undefined, "Scope");
@@ -148,7 +149,8 @@
     cbNorm.value = true;
     cbDbl.value = true;
     cbTrail.value = true;
-    rbDoc.value = true; // default scope per requirement
+    cbGuides.value = true;
+    rbDoc.value = true; // default scope
 
     // Enablement rules: show but disable if not applicable
     rbSelection.enabled = hasRangedTextSelection; // Disable for caret-only selection
@@ -162,19 +164,28 @@
 
     // Helpers to sync the `All` checkbox
     function syncAllFromChildren() {
-        allCb.value = (cbFix.value && cbNorm.value && cbDbl.value && cbTrail.value);
+        allCb.value = (cbFix.value && cbNorm.value && cbDbl.value && cbTrail.value && cbGuides.value);
     }
     function setChildren(v) {
-        cbFix.value = v; cbNorm.value = v; cbDbl.value = v; cbTrail.value = v;
+        cbFix.value = v; cbNorm.value = v; cbDbl.value = v; cbTrail.value = v; cbGuides.value = v;
     }
 
-    allCb.onClick = function () { setChildren(allCb.value); };
-    cbFix.onClick = cbNorm.onClick = cbDbl.onClick = cbTrail.onClick = function () { syncAllFromChildren(); };
+    // Enable/disable Run button depending on whether any option is selected
+    function anyOptionSelected() {
+        return (cbFix.value || cbNorm.value || cbDbl.value || cbTrail.value || cbGuides.value || allCb.value);
+    }
+    function updateRunEnabled() {
+        try { if (runBtn) runBtn.enabled = anyOptionSelected(); } catch (e) {}
+    }
+
+    allCb.onClick = function () { setChildren(allCb.value); updateRunEnabled(); };
+    cbFix.onClick = cbNorm.onClick = cbDbl.onClick = cbTrail.onClick = cbGuides.onClick = function () { syncAllFromChildren(); updateRunEnabled(); };
 
     var btns = dlg.add("group");
     btns.alignment = "right";
     var cancelBtn = btns.add("button", undefined, "Cancel");
     var runBtn = btns.add("button", undefined, "Run", {name: "ok"});
+    updateRunEnabled();
 
     runBtn.onClick = function () { dlg.close(1); };
     cancelBtn.onClick = function () { dlg.close(0); };
@@ -182,44 +193,23 @@
     var dlgRes = dlg.show();
     if (dlgRes !== 1) { return; }
 
-    // Ensure at least one option selected
-    if (!allCb.value && !cbFix.value && !cbNorm.value && !cbDbl.value && !cbTrail.value) {
-        alert("No cleanup actions were selected.");
-        return;
-    }
+    // Run button is disabled when no options are selected (no alert needed)
 
-    // Confirmation dialog (pattern similar to other scripts)
-    var selectedNames = [];
-    if (allCb.value || cbFix.value) selectedNames.push("Fix marks order");
-    if (allCb.value || cbNorm.value) selectedNames.push("Normalize presentation forms");
-    if (allCb.value || cbDbl.value) selectedNames.push("Remove double spaces");
-    if (allCb.value || cbTrail.value) selectedNames.push("Trim trailing paragraph marks (leave one)");
+    // Determine what actions are requested
+    var wantsText = (allCb.value || cbFix.value || cbNorm.value || cbDbl.value || cbTrail.value);
+    var wantsGuides = (allCb.value || cbGuides.value);
 
-    var confirmDlg = new Window("dialog", "Confirm Cleanup");
-    confirmDlg.orientation = "column";
-    confirmDlg.alignChildren = "left";
-    confirmDlg.margins = 16;
-    var msg = "Proceed with " + selectedNames.length + " selected cleanup action" + (selectedNames.length === 1 ? "" : "s") + "?";
-    confirmDlg.add("statictext", undefined, msg);
-    // show a compact list
-    for (var si = 0; si < selectedNames.length; si++) {
-        confirmDlg.add("statictext", undefined, "• " + selectedNames[si]);
-    }
-    var cg = confirmDlg.add("group");
-    cg.alignment = "right";
-    var yesBtn = cg.add("button", undefined, "Yes");
-    var noBtn = cg.add("button", undefined, "No");
-    var confirmed = false;
-    yesBtn.onClick = function(){ confirmed = true; confirmDlg.close(1); };
-    noBtn.onClick = function(){ confirmed = false; confirmDlg.close(0); };
-
-    var cRes = confirmDlg.show();
-    if (cRes !== 1 || !confirmed) { return; }
-
-    // Resolve targets based on selected scope
-    var targets = resolveScopeTargets();
-    if (!targets || targets.length === 0) {
-        return; // an alert has already been shown when invalid
+    // Resolve text targets only if needed
+    var targets = [];
+    var hasTextTargets = false;
+    if (wantsText) {
+        targets = resolveScopeTargets();
+        hasTextTargets = (targets && targets.length > 0);
+        if (!hasTextTargets && !wantsGuides) {
+            return; // nothing to do
+        }
+    } else if (!wantsGuides) {
+        return; // nothing selected (should not happen due to earlier validation)
     }
 
     // Build the list of replacements to run based on selection
@@ -262,6 +252,15 @@
                 }
             }
         }
+        // Remove non-master guides if requested
+        if (allCb.value || cbGuides.value) {
+            try {
+                var removedGuides = removeNonMasterGuidesForScope();
+                if (removedGuides > 0) {
+                    changesApplied.push("Remove non-master guides");
+                }
+            } catch (eg) {}
+        }
     }, ScriptLanguage.JAVASCRIPT, undefined, UndoModes.ENTIRE_SCRIPT, "Character Cleanup");
 
     // Show completion confirmation
@@ -276,6 +275,20 @@
         try { app.changeGrepPreferences = null; } catch (e2) {}
     }
 
+    // Centralized lightweight error logging for ExtendScript
+    var ENABLE_DEBUG_LOG = true;
+    var __errorLog = [];
+    function logError(context, err) {
+        try {
+            var msg = "";
+            try { msg = err && err.message ? String(err.message) : String(err); } catch (ie) { msg = "[unknown error]"; }
+            var entry = (new Date()).toUTCString() + " | " + context + " | " + msg;
+            __errorLog.push(entry);
+            try { if (ENABLE_DEBUG_LOG && $.writeln) $.writeln("[CharacterCleanup] " + entry); } catch (we) {}
+        } catch (le) {}
+    }
+    function getErrorLog() { return __errorLog; }
+
     function changeTargets(find, replaceTo, tgts) {
         var any = false;
         for (var ti = 0; ti < tgts.length; ti++) {
@@ -285,13 +298,13 @@
                 app.findGrepPreferences.findWhat = find;
                 app.changeGrepPreferences.changeTo = replaceTo;
                 var foundItems = [];
-                try { foundItems = t.findGrep(); } catch (e3) { foundItems = []; }
+                try { foundItems = t.findGrep(); } catch (e3) { logError("changeTargets: t.findGrep failed", e3); foundItems = []; }
                 if (foundItems && foundItems.length > 0) {
-                    try { t.changeGrep(true); } catch (e4) {}
+                    try { t.changeGrep(true); } catch (e4) { logError("changeTargets: t.changeGrep failed", e4); }
                     any = true;
                 }
             } catch (e) {
-                // continue
+                logError("changeTargets: outer try failed", e);
             } finally {
                 safeReset();
             }
@@ -303,32 +316,224 @@
         var any = false;
         for (var ti = 0; ti < tgts.length; ti++) {
             var t = tgts[ti];
-            var maxIterations = 10;
+            var maxIterations = 50; // hard cap safeguard
             var iterations = 0;
+            var noProgressStreak = 0; // break if we detect no progress across consecutive passes
             while (iterations < maxIterations) {
-                var changedThisPass = false;
+                var beforeCount = 0;
                 try {
                     safeReset();
                     app.findGrepPreferences.findWhat = find;
                     app.changeGrepPreferences.changeTo = replaceTo;
                     var foundItems = [];
-                    try { foundItems = t.findGrep(); } catch (e3) { foundItems = []; }
-                    if (!foundItems || foundItems.length === 0) {
-                        break;
+                    try { foundItems = t.findGrep(); } catch (e3) { logError("changeIterativeTargets: t.findGrep (before) failed", e3); foundItems = []; }
+                    beforeCount = foundItems ? foundItems.length : 0;
+                    if (!foundItems || beforeCount === 0) {
+                        break; // nothing to do
                     }
-                    try { t.changeGrep(true); } catch (e4) {}
-                    changedThisPass = true;
+                    try { t.changeGrep(true); } catch (e4) { logError("changeIterativeTargets: t.changeGrep failed", e4); }
                     any = true;
                 } catch (e) {
+                    logError("changeIterativeTargets: outer iteration error", e);
+                    // Unexpected error: stop iterating on this target
                     break;
                 } finally {
                     safeReset();
                 }
-                if (!changedThisPass) break;
+
+                // After the change, check if we are making progress; if not, stop after a couple of tries
+                var afterCount = 0;
+                try {
+                    safeReset();
+                    app.findGrepPreferences.findWhat = find;
+                    var checkItems = [];
+                    try { checkItems = t.findGrep(); } catch (e5) { logError("changeIterativeTargets: t.findGrep (after) failed", e5); checkItems = []; }
+                    afterCount = checkItems ? checkItems.length : 0;
+                } catch (e6) {
+                    logError("changeIterativeTargets: after-count evaluation failed", e6);
+                    afterCount = 0; // if we cannot evaluate, err on the side of exiting
+                } finally {
+                    safeReset();
+                }
+
+                if (afterCount >= beforeCount) {
+                    noProgressStreak++;
+                } else {
+                    noProgressStreak = 0;
+                }
+                if (noProgressStreak >= 2) {
+                    // No meaningful progress across iterations; avoid potential infinite loop
+                    break;
+                }
+
                 iterations++;
             }
         }
         return any;
+    }
+
+    // Remove non-master guides according to selected scope
+    function removeNonMasterGuidesForScope() {
+        var totalRemoved = 0;
+        // All Documents
+        if (rbAllDocs.value) {
+            if (!app.documents || app.documents.length === 0) return 0;
+            for (var d = 0; d < app.documents.length; d++) {
+                var doc = null;
+                try { doc = app.documents[d]; } catch (e0) { doc = null; }
+                if (doc && doc.isValid) {
+                    totalRemoved += removeNonMasterGuidesInDocument(doc);
+                }
+            }
+            return totalRemoved;
+        }
+        // Active Document
+        if (rbDoc.value) {
+            var ad;
+            try { ad = app.activeDocument; } catch (e1) { ad = null; }
+            if (ad && ad.isValid) totalRemoved += removeNonMasterGuidesInDocument(ad);
+            return totalRemoved;
+        }
+        // Active Page
+        if (rbPage.value) {
+            var page = getActivePageSafe();
+            if (page) totalRemoved += removeGuidesOnPageAndSpread(page);
+            return totalRemoved;
+        }
+        // Story / Frame / Selection -> remove on pages containing selection containers
+        var pages = collectPagesFromSelection();
+        var unique = {};
+        for (var i = 0; i < pages.length; i++) {
+            var p = pages[i];
+            var pid = "";
+            try { pid = String(p.id); } catch (e2) { pid = String(i); }
+            if (!unique[pid]) {
+                unique[pid] = true;
+                totalRemoved += removeGuidesOnPageAndSpread(p);
+            }
+        }
+        return totalRemoved;
+    }
+
+    function removeNonMasterGuidesInDocument(doc) {
+        var removed = 0;
+        var prevLocked;
+        try { prevLocked = doc.guidePreferences.guidesLocked; doc.guidePreferences.guidesLocked = false; } catch (e) { prevLocked = null; }
+        try {
+            // Remove spread guides from non-master spreads
+            var spreads;
+            try { spreads = doc.spreads.everyItem().getElements(); } catch (e1) { spreads = []; }
+            for (var si = 0; si < spreads.length; si++) {
+                var sp = spreads[si];
+                var ctor; try { ctor = String(sp && sp.constructor && sp.constructor.name); } catch (e2) { ctor = ""; }
+                if (ctor === "Spread") {
+                    removed += removeGuidesFromSpread(sp);
+                }
+            }
+            // Remove page guides on all document pages
+            var pages;
+            try { pages = doc.pages.everyItem().getElements(); } catch (e3) { pages = []; }
+            for (var pi = 0; pi < pages.length; pi++) {
+                removed += removeGuidesFromPage(pages[pi]);
+            }
+        } catch (e4) {}
+        // restore lock state
+        try { if (prevLocked !== null) doc.guidePreferences.guidesLocked = prevLocked; } catch (e5) {}
+        return removed;
+    }
+
+    function removeGuidesOnPageAndSpread(page) {
+        var removed = 0;
+        if (!page || !page.isValid) return 0;
+        var doc; try { doc = page.parent.parent; } catch (e) { doc = null; }
+        var prevLocked; try { if (doc) { prevLocked = doc.guidePreferences.guidesLocked; doc.guidePreferences.guidesLocked = false; } } catch (e0) { prevLocked = null; }
+        try {
+            // Page guides
+            removed += removeGuidesFromPage(page);
+            // Spread guides (ensure not master spread)
+            var spread; try { spread = page.parent; } catch (e1) { spread = null; }
+            var ctor; try { ctor = String(spread && spread.constructor && spread.constructor.name); } catch (e2) { ctor = ""; }
+            if (ctor === "Spread") {
+                removed += removeGuidesFromSpread(spread);
+            }
+        } catch (e3) {}
+        try { if (doc && prevLocked !== null) doc.guidePreferences.guidesLocked = prevLocked; } catch (e4) {}
+        return removed;
+    }
+
+    function removeGuidesFromSpread(spread) {
+        var count = 0;
+        if (!spread || !spread.isValid) return 0;
+        var guides;
+        try { guides = spread.guides.everyItem().getElements(); } catch (e) { guides = []; }
+        for (var i = 0; i < guides.length; i++) {
+            var g = guides[i];
+            if (!g || !g.isValid) continue;
+            var layer = null; var prev = null;
+            try { layer = g.itemLayer; prev = layer.locked; if (prev) layer.locked = false; } catch (e1) { layer = null; prev = null; }
+            try { if (g.locked) g.locked = false; } catch (e2) {}
+            try { g.remove(); count++; } catch (e3) {}
+            try { if (layer && prev !== null) layer.locked = prev; } catch (e4) {}
+        }
+        return count;
+    }
+
+    function removeGuidesFromPage(page) {
+        var count = 0;
+        if (!page || !page.isValid) return 0;
+        var guides;
+        try { guides = page.guides.everyItem().getElements(); } catch (e) { guides = []; }
+        for (var i = 0; i < guides.length; i++) {
+            var g = guides[i];
+            if (!g || !g.isValid) continue;
+            var layer = null; var prev = null;
+            try { layer = g.itemLayer; prev = layer.locked; if (prev) layer.locked = false; } catch (e1) { layer = null; prev = null; }
+            try { if (g.locked) g.locked = false; } catch (e2) {}
+            try { g.remove(); count++; } catch (e3) {}
+            try { if (layer && prev !== null) layer.locked = prev; } catch (e4) {}
+        }
+        return count;
+    }
+
+    function collectPagesFromSelection() {
+        var pages = [];
+        try {
+            if (!app.selection || app.selection.length === 0) return pages;
+            for (var i = 0; i < app.selection.length; i++) {
+                var it = app.selection[i];
+                var page = null;
+                try { page = it.parentPage; } catch (e) { page = null; }
+                if (!page) {
+                    try {
+                        var story = null;
+                        try { if (it && it.parentStory && it.parentStory.isValid) story = it.parentStory; } catch (es) { story = null; }
+                        if (story) {
+                            var containers = [];
+                            try { containers = story.textContainers; } catch (ec) { containers = []; }
+                            for (var c = 0; c < containers.length; c++) {
+                                var p = null; try { p = containers[c].parentPage; } catch (ep) { p = null; }
+                                if (p && p.isValid) pages.push(p);
+                            }
+                        }
+                    } catch (e2) {}
+                } else if (page && page.isValid) {
+                    pages.push(page);
+                }
+            }
+        } catch (e3) {}
+        return pages;
+    }
+
+    function getActivePageSafe() {
+        var page = null;
+        try {
+            if (app.layoutWindows && app.layoutWindows.length > 0) {
+                page = app.layoutWindows[0].activePage;
+            } else if (app.activeWindow) {
+                page = app.activeWindow.activePage;
+            }
+        } catch (e) { page = null; }
+        return page;
     }
 
     function resolveScopeTargets() {
@@ -392,7 +597,7 @@
             }
             var seenStoryIds = {};
             try {
-                var frames = [];
+                var frames;
                 try { frames = page.textFrames ? page.textFrames.everyItem().getElements() : []; } catch (e7) { frames = []; }
                 for (var i = 0; i < frames.length; i++) {
                     var st = null;
@@ -441,8 +646,8 @@
                 alert("Make a selection first.");
                 return [];
             }
-            for (var s = 0; s < app.selection.length; s++) {
-                var item = app.selection[s];
+            for (var s2 = 0; s2 < app.selection.length; s2++) {
+                var item = app.selection[s2];
                 var txt = null;
                 try { if (item && item.texts && item.texts.length > 0) txt = item.texts[0]; } catch (e11) {}
                 if (!txt) {
@@ -491,6 +696,14 @@
             for (var j = 0; j < uniqueChanges.length; j++) {
                 completionDlg.add("statictext", undefined, "• " + uniqueChanges[j]);
             }
+
+            // If any errors were logged, inform the user succinctly
+            try {
+                var errs = (typeof getErrorLog === "function") ? getErrorLog() : [];
+                if (errs && errs.length > 0) {
+                    completionDlg.add("statictext", undefined, "Note: " + errs.length + " non-fatal error(s) occurred. See Console for details.");
+                }
+            } catch (e) {}
         }
 
         var okGroup = completionDlg.add("group");
