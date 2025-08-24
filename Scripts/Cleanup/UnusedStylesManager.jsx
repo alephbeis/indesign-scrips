@@ -322,8 +322,61 @@
     };
   }
 
+  // ---- group utilities ----
+  function collectEmptyGroups(){
+    function walkGroups(rootColl, kind){
+      var result = [];
+      function childGroups(g){
+        try{
+          if (kind==="Paragraph") return g.paragraphStyleGroups.everyItem().getElements();
+          if (kind==="Character") return g.characterStyleGroups.everyItem().getElements();
+          if (kind==="Object")    return g.objectStyleGroups.everyItem().getElements();
+          if (kind==="Table")     return g.tableStyleGroups.everyItem().getElements();
+          if (kind==="Cell")      return g.cellStyleGroups.everyItem().getElements();
+        }catch(_e2){}
+        return [];
+      }
+      function hasOwnStyles(g){
+        try{
+          if (kind==="Paragraph") return g.paragraphStyles.length>0;
+          if (kind==="Character") return g.characterStyles.length>0;
+          if (kind==="Object")    return g.objectStyles.length>0;
+          if (kind==="Table")     return g.tableStyles.length>0;
+          if (kind==="Cell")      return g.cellStyles.length>0;
+        }catch(_e){}
+        return false;
+      }
+      function walkAndMark(g){
+        if (!g || !g.isValid) return false;
+        var subs = [], i, allSubsEmpty = true;
+        try{ subs = childGroups(g); }catch(_e4){}
+        for (i=0;i<subs.length;i++){
+          var subEmpty = walkAndMark(subs[i]);
+          if (!subEmpty) allSubsEmpty = false;
+        }
+        var ownHas = hasOwnStyles(g);
+        var isEmptyDeep = (!ownHas) && allSubsEmpty && subs.length>=0; // if no styles and all children empty
+        if (isEmptyDeep) { try{ result.push(g); }catch(_eP){} }
+        return isEmptyDeep;
+      }
+      try{
+        var i, arr = rootColl.everyItem ? rootColl.everyItem().getElements() : [];
+        for (i=0;i<arr.length;i++) walkAndMark(arr[i]);
+      }catch(_e5){}
+      return result;
+    }
+    return {
+      para:  walkGroups(doc.paragraphStyleGroups, "Paragraph"),
+      charS: walkGroups(doc.characterStyleGroups, "Character"),
+      obj:   walkGroups(doc.objectStyleGroups,    "Object"),
+      table: walkGroups(doc.tableStyleGroups,     "Table"),
+      cell:  walkGroups(doc.cellStyleGroups,      "Cell")
+    };
+  }
+
   // ---- run once, then UI ----
   var scan = scanDocument();
+  var emptyGroups = collectEmptyGroups();
 
   var modeMap   = ["noDirectButIndirect","noUsageAtAll","bothSets"];
   var modeNames = ["Has no direct usage","Has no usage at all","Both of the above"];
@@ -334,23 +387,42 @@
   var w = new Window("dialog","Unused Styles Manager");
   w.alignChildren = "fill";
 
-  var hdr = w.add("group");
-  hdr.add("statictext", undefined, "Type:");
-  var typeDD = hdr.add("dropdownlist", undefined, ["All","Paragraph","Character","Object","Table","Cell"]); typeDD.selection = 0;
+  // Layout: left column with type radios; right panel with mode + list + buttons
+  var main = w.add("group");
+  main.orientation = "row";
+  main.alignChildren = "fill";
 
-  hdr.add("statictext", undefined, "   Mode:");
+  // Left type filter column (radio buttons)
+  var typeCol = main.add("panel", undefined, "Type");
+  typeCol.orientation = "column";
+  typeCol.alignChildren = "left";
+  var rbAll = typeCol.add("radiobutton", undefined, "All");
+  var rbParagraph = typeCol.add("radiobutton", undefined, "Paragraph");
+  var rbCharacter = typeCol.add("radiobutton", undefined, "Character");
+  var rbObject = typeCol.add("radiobutton", undefined, "Object");
+  var rbTable = typeCol.add("radiobutton", undefined, "Table");
+  var rbCell = typeCol.add("radiobutton", undefined, "Cell");
+  rbAll.value = true; // default selection
+
+  // Right side panel
+  var right = main.add("group");
+  right.orientation = "column";
+  right.alignChildren = "fill";
+
+  var hdr = right.add("group");
+  hdr.add("statictext", undefined, "Mode:");
   var modeDD = hdr.add("dropdownlist", undefined, modeNames); modeDD.selection = 1; // default "no usage at all"
 
   // Columns list
-  var list = w.add("listbox", [0,0,820,380], '', {
+  var list = right.add("listbox", [0,0,704,384], '', {
     multiselect:true,
     numberOfColumns: 3,
     showHeaders: true,
     columnTitles: ['Type', 'Style', 'Folder'],
-    columnWidths: [120, 300, 330]
+    columnWidths: [152, 240, 240]
   });
 
-  var btns = w.add("group"); btns.alignment = "right";
+  var btns = right.add("group"); btns.alignment = "right";
   var detailsBtn = btns.add("button", undefined, "Details…");
   var delBtn     = btns.add("button", undefined, "Delete Selected");
   var closeBtn   = btns.add("button", undefined, "Close", {name:"ok"});
@@ -364,9 +436,30 @@
     return [];
   }
 
+  function currentEmptyGroups(kind){
+    if (kind==="Paragraph") return emptyGroups.para;
+    if (kind==="Character") return emptyGroups.charS;
+    if (kind==="Object")    return emptyGroups.obj;
+    if (kind==="Table")     return emptyGroups.table;
+    if (kind==="Cell")      return emptyGroups.cell;
+    return [];
+  }
+
+  function getSelectedType(){
+    try{
+      if (rbAll.value) return "All";
+      if (rbParagraph.value) return "Paragraph";
+      if (rbCharacter.value) return "Character";
+      if (rbObject.value) return "Object";
+      if (rbTable.value) return "Table";
+      if (rbCell.value) return "Cell";
+    }catch(_eRST){}
+    return "All";
+  }
+
   function fillList(){
     list.removeAll();
-    var selType = typeDD.selection.text;
+    var selType = getSelectedType();
     var kindsOrder = ["Paragraph","Character","Object","Table","Cell"];
     function addItem(kind, s){
       var it = list.add('item', kind);
@@ -375,7 +468,16 @@
       it._ref = s;
       it._kind = kind;
     }
-    var i, s, arr, k;
+    function addGroupItem(kind, g){
+      var label = kind + " Folder (Empty)";
+      var it = list.add('item', label);
+      try { it.subItems[0].text = safeName(g); } catch(_eg1){}
+      try { it.subItems[1].text = stylePath(g); } catch(_eg2){}
+      it._ref = g;
+      it._kind = kind; // base kind without "Folder"
+      it._isGroup = true;
+    }
+    var i, s, arr, k, grs, gi;
     if (selType === "All"){
       for (k=0; k<kindsOrder.length; k++){
         var kind = kindsOrder[k];
@@ -384,6 +486,9 @@
           s = arr[i];
           addItem(kind, s);
         }
+        // Append empty folders for this kind
+        grs = currentEmptyGroups(kind);
+        for (gi=0; gi<grs.length; gi++) addGroupItem(kind, grs[gi]);
       }
     } else {
       arr = currentArr(selType);
@@ -391,15 +496,26 @@
         s = arr[i];
         addItem(selType, s);
       }
+      // Append empty folders for the selected kind
+      grs = currentEmptyGroups(selType);
+      for (gi=0; gi<grs.length; gi++) addGroupItem(selType, grs[gi]);
     }
   }
 
-  typeDD.onChange = fillList;
+  // Type selection via radio buttons
+  rbAll.onClick = fillList;
+  rbParagraph.onClick = fillList;
+  rbCharacter.onClick = fillList;
+  rbObject.onClick = fillList;
+  rbTable.onClick = fillList;
+  rbCell.onClick = fillList;
 
   modeDD.onChange = function(){
     var idx = modeDD.selection.index;
     mode = modeMap[idx];
     unused = computeUnused(scan, mode);
+    // Empty folders are independent of mode, but refresh in case the user deleted items
+    emptyGroups = collectEmptyGroups();
     fillList();
   };
 
@@ -424,8 +540,15 @@
   }
 
   detailsBtn.onClick = function(){
-    if (!list.selection || list.selection.length===0){ alert("Select a style first."); return; }
-    var s = list.selection[0]._ref, d = depsForStyle(s);
+    if (!list.selection || list.selection.length===0){ alert("Select an item first."); return; }
+    var sel = list.selection[0];
+    var s = sel._ref;
+    if (sel._isGroup){
+      var msgG = "Folder: " + safeName(s) + "\rParent: " + stylePath(s) + "\r\rThis folder is empty (no styles and no subfolders).";
+      alert(msgG);
+      return;
+    }
+    var d = depsForStyle(s);
     var msg = "Style: " + safeName(s) + "\rGroup: " + stylePath(s) + "\r\r";
     if (!d.length) msg += "(No dependencies recorded.)";
     else { var i; msg += "Dependencies:\r"; for (i=0;i<d.length;i++) msg += "  • " + d[i] + "\r"; }
@@ -433,7 +556,7 @@
   };
 
   delBtn.onClick = function(){
-    if (!list.selection || list.selection.length===0){ alert("Select one or more styles to delete."); return; }
+    if (!list.selection || list.selection.length===0){ alert("Select one or more items to delete."); return; }
     var sel=list.selection, copy=[], i;
     for (i=0;i<sel.length;i++) copy.push(sel[i]); // ES3 copy
 
@@ -446,7 +569,11 @@
       for (j=copy.length-1; j>=0; j--){
         it = copy[j];
         s  = it._ref;
-        knd = it._kind || ((typeDD && typeDD.selection) ? typeDD.selection.text : null);
+        // If it's an empty folder (group), delete directly
+        if (it._isGroup){
+          try{ s.remove(); delCount++; try { it.remove(); }catch(_eUIF){} continue; }catch(_egDel){ fail++; continue; }
+        }
+        knd = it._kind || (function(){ try{ var t = getSelectedType(); return t; }catch(_g){ return null; } })();
         try{ if (knd === "All") knd = null; }catch(_eK){}
         try{
           if (!knd) {
@@ -473,14 +600,15 @@
           }
         }catch(_er){ fail++; }
       }
-    }, ScriptLanguage.JAVASCRIPT, undefined, UndoModes.ENTIRE_SCRIPT, "Delete unused styles");
+    }, ScriptLanguage.JAVASCRIPT, undefined, UndoModes.ENTIRE_SCRIPT, "Delete unused styles and folders");
 
     // Refresh lists so counts reflect the change
     scan = scanDocument();
+    emptyGroups = collectEmptyGroups();
     unused = computeUnused(scan, mode);
     fillList();
 
-    alert("Deleted (replaced with None; formatting preserved): "+delCount + (fail?("\rFailed: "+fail):""));
+    alert("Deleted (styles replaced with None; formatting preserved where applicable): "+delCount + (fail?("\rFailed: "+fail):""));
   };
 
   // initial fill

@@ -19,6 +19,7 @@ The `UnusedStylesManager.jsx` script provides comprehensive management of unused
 - **Multi-Category Processing**: Handles paragraph, character, object, table, and cell styles
 - **Intelligent Detection Modes**: Multiple criteria for identifying unused styles
 - **Style Group Navigation**: Displays hierarchical folder paths for organized styles
+- **Empty Folder Detection**: Also lists empty style folders (groups) per category for optional cleanup
 - **Safe Deletion**: Uses replacement styles to ensure deletion always succeeds
 - **Built-in Style Protection**: Preserves essential InDesign built-in styles
 - **Comprehensive Analysis**: Scans all document content including hidden and locked areas
@@ -66,20 +67,21 @@ The script framework supports additional detection modes for different cleanup s
 ## User Interface
 
 ### Style Category Selection
-- **Multi-Select Checkboxes**: Choose which style categories to analyze
-- **Select All Option**: Process all style categories simultaneously
+- **Left-side Radio Buttons**: Pick a single style category to analyze quickly
+- **All Option**: Process all style categories simultaneously
 - **Category Labels**: Clear identification of each style type
 
 ### Detection Results Display
-- **Style List**: Scrollable list showing all detected unused styles
+- **Style List**: Scrollable list showing all detected unused styles and empty folders
 - **Folder Path Column**: Shows hierarchical location within style groups
-- **Style Name Column**: Displays actual style names for identification
-- **Count Summary**: Total number of unused styles found per category
+- **Style Name Column**: Displays actual style names (or folder names) for identification
+- **Count Summary**: Total number of unused styles and empty folders found per category
 
 ### Deletion Workflow
-- **Selection Review**: User can review all styles before deletion
+- **Selection Review**: User can review all styles and empty folders before deletion
 - **Confirmation Dialog**: Final approval with detailed deletion summary
 - **Progress Feedback**: Real-time feedback during deletion process
+- **Folder Removal**: Empty folders are deleted directly; styles are deleted with safe replacements
 
 ## Technical Details
 
