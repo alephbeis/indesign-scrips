@@ -29,7 +29,18 @@ Notes:
 
 ## Confirmation Dialogs
 
-- Use InDesign dialogs (ScriptUI modal windows or `app.dialogs`) for confirmations and destructive-action prompts where possible, rather than system dialogs such as `alert`/`confirm`/`prompt`.
+- Default policy: avoid adding an extra “Are you sure?” confirmation step before running actions.
+    - Prefer a clear, descriptive primary action label (e.g., “Run Cleanup”, “Delete Unused Styles”), show impact in the dialog itself, and rely on a single undo step via `app.doScript(..., UndoModes.ENTIRE_SCRIPT, ...)`.
+    - Offer safer alternatives when needed: Preview, Dry‑run/Report‑only.
+    - Add a confirmation only for truly destructive and hard‑to‑recover operations (e.g., permanent deletions with no undo path, cross‑document bulk deletes, irreversible data loss).
+
+## Dialogs
+
+Directive (summary):
+- Build a single main utility dialog that contains Options and Scope with a clear, descriptive primary action (e.g., “Run Cleanup”, “Delete Unused Styles”).
+- Do not add a post-click “Are you sure?” confirmation. Prefer safer in-dialog alternatives: Preview, Dry‑run/Report‑only, or an explicit checkbox like “I understand this will delete X”. See “Confirmation Dialogs” above for narrow exceptions.
+
+Use InDesign dialogs (ScriptUI modal windows or `app.dialogs`) instead of system dialogs (`alert`/`confirm`/`prompt`) to keep visual consistency and proper keyboard roles.
 - Why this is preferred:
   - Visual consistency with the rest of the script UI and InDesign themes.
   - Clear default/cancel roles and keyboard handling (Enter/Esc) within one dialog flow.
@@ -38,19 +49,65 @@ Notes:
 - Acceptable exceptions:
   - Critical, one-off error states where the script must stop immediately and no parent dialog exists.
   - Very simple post-run notifications where a full dialog would be excessive.
-- Pattern (ScriptUI):
+
+Preferred pattern: Main utility dialog (ScriptUI)
 
 ```jsx
-// ScriptUI confirmation pattern
-var win = new Window('dialog', 'Confirm action');
+// Main dialog pattern (no extra confirmation). Includes Options, Scope, and Dry‑run.
+var win = new Window('dialog', 'Delete Unused Styles');
 win.orientation = 'column';
 win.margins = 16;
 win.spacing = 12;
 
-win.add('statictext', undefined, 'Delete selected items? This cannot be undone.');
-var row = win.add('group'); row.alignment = 'right'; row.spacing = 8;
+// Options panel
+var optionsPanel = win.add('panel', undefined, 'Options');
+optionsPanel.orientation = 'column';
+optionsPanel.margins = 12;
+optionsPanel.spacing = 8;
+var chkDryRun = optionsPanel.add('checkbox', undefined, 'Dry run (report only)');
+chkDryRun.value = true; // safer default
+
+// Scope panel (placeholder; integrate your shared scope chooser here)
+var scopePanel = win.add('panel', undefined, 'Scope');
+scopePanel.orientation = 'column';
+scopePanel.margins = 12;
+scopePanel.add('statictext', undefined, 'Document (active)'); // example default
+
+// Footer buttons
+var row = win.add('group');
+row.alignment = 'right';
+row.spacing = 8;
 var btnCancel = row.add('button', undefined, 'Cancel', { name: 'cancel' });
-var btnOk = row.add('button', undefined, 'Delete', { name: 'ok' });
+var btnRun = row.add('button', undefined, 'Delete Unused Styles', { name: 'ok' });
+
+win.defaultElement = btnRun;
+win.cancelElement = btnCancel;
+
+var result = win.show(); // 1 = OK, 2 = Cancel
+if (result !== 1) { /* user canceled */ }
+
+var dryRun = chkDryRun.value;
+// Proceed with resolved scope and options; wrap work in app.doScript(..., UndoModes.ENTIRE_SCRIPT, ...)
+```
+
+When a confirmation is justified (destructive actions only)
+
+```jsx
+// Only show a confirmation when the action is truly destructive and not easily undoable.
+var win = new Window('dialog', 'Confirm deletion');
+win.orientation = 'column';
+win.margins = 16;
+win.spacing = 12;
+
+// Warning message
+var msg = win.add('statictext', undefined, 'Delete 12 styles across 5 documents? This cannot be undone.');
+msg.characters = 60;
+
+var row = win.add('group');
+row.alignment = 'right';
+row.spacing = 8;
+var btnCancel = row.add('button', undefined, 'Cancel', { name: 'cancel' });
+var btnOk = row.add('button', undefined, 'Delete 12 styles', { name: 'ok' }); // explicit, descriptive label
 
 win.defaultElement = btnOk;
 win.cancelElement = btnCancel;
@@ -59,19 +116,19 @@ var result = win.show(); // 1 = OK, 2 = Cancel
 if (result !== 1) { /* user canceled */ }
 ```
 
-- Pattern (classic `app.dialogs`):
+Pattern (classic `app.dialogs`)
 
 ```jsx
-var dlg = app.dialogs.add({ name: 'Confirm action' });
+var dlg = app.dialogs.add({ name: 'Confirm deletion' });
 with (dlg.dialogColumns.add()) {
-  staticTexts.add({ staticLabel: 'Delete selected items? This cannot be undone.' });
+  staticTexts.add({ staticLabel: 'Delete 12 styles across 5 documents? This cannot be undone.' });
 }
 var ok = dlg.show(); // true if OK, false if Cancel
 dlg.destroy();
 if (!ok) { /* user canceled */ }
 ```
 
-- Do not use `confirm()` or `prompt()`; avoid `alert()` for confirmations. If alerting an error, keep it concise and prefer integrating messages into the existing dialog when feasible.
+Do not use `confirm()` or `prompt()`; avoid `alert()` for confirmations. If alerting an error, keep it concise and prefer integrating messages into the existing dialog when feasible.
 
 ## Progress Windows (Run-time Feedback)
 
