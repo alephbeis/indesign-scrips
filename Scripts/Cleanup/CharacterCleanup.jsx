@@ -280,7 +280,7 @@
     var __errorLog = [];
     function logError(context, err) {
         try {
-            var msg = "";
+            var msg;
             try { msg = err && err.message ? String(err.message) : String(err); } catch (ie) { msg = "[unknown error]"; }
             var entry = (new Date()).toUTCString() + " | " + context + " | " + msg;
             __errorLog.push(entry);
