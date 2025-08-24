@@ -1,10 +1,10 @@
 /**
- * Change Nekuda - Enhanced Script
+ * Change Nekuda
  * Provides flexible interface to change any Hebrew vowel mark (nekuda) to any other
  * 
  * Features:
- * - Change From: Lists all Nekudos present in the document
- * - Change To: Lists all available Nekudos
+ * - Change From: Lists all Nekudos plus Shin and Sin dots
+ * - Change To: Lists all Nekudos plus Shin and Sin dots
  * - Full flexibility for any combination of changes
  */
 
@@ -46,7 +46,7 @@
      * Show the main dialog with Change From and Change To options
      */
     function showChangeNekudaDialog() {
-        var dialog = new Window('dialog', 'Change Nekuda - Enhanced');
+        var dialog = new Window('dialog', 'Change Nekuda');
         dialog.orientation = 'column';
         dialog.margins = 16;
         dialog.spacing = 10;
@@ -55,22 +55,23 @@
         // Scan document for existing nekudos
         var foundNekudos = scanDocumentForNekudos();
         
-        if (foundNekudos.length === 0) {
-            alert("No Hebrew vowel marks (Nekudos) found in the document.");
-            return;
+        // Build a presence map for quick lookup (name -> count)
+        var presentMap = {};
+        for (var _fi = 0; _fi < foundNekudos.length; _fi++) {
+            presentMap[foundNekudos[_fi].name] = foundNekudos[_fi].count || 0;
         }
         
         // Main two-column layout
         var mainGroup = dialog.add('group');
         mainGroup.orientation = 'row';
-        mainGroup.alignment = 'fill';
+        mainGroup.alignment = 'left';
         mainGroup.spacing = 10;
         
         // Left column (smaller) - Change From/To
         var leftColumn = mainGroup.add('group');
-        leftColumn.orientation = 'column';
+        leftColumn.orientation = 'row';
         leftColumn.spacing = 8;
-        leftColumn.preferredSize.width = 300;
+        leftColumn.alignment = 'top';
         
         // Change From section
         var fromPanel = leftColumn.add('panel', undefined, 'Change From');
@@ -79,15 +80,34 @@
         fromPanel.spacing = 6;
         fromPanel.alignChildren = 'fill';
         
-        var fromDropdown = fromPanel.add('dropdownlist');
-        fromDropdown.preferredSize.width = 250;
+        // Single-column radio list for Change From
+        var fromListCol = fromPanel.add('group');
+        fromListCol.orientation = 'column';
+        fromListCol.alignChildren = 'left';
         
-        // Populate Change From dropdown with found nekudos
-        for (var i = 0; i < foundNekudos.length; i++) {
-            var nekuda = foundNekudos[i];
-            fromDropdown.add('item', nekuda.name + ' (' + nekuda.hebrew + ') - Found: ' + nekuda.count + ' times');
+        var fromRadios = [];
+        var firstEnabledFromIndex = -1;
+        for (var i = 0; i < nekudos.length; i++) {
+            var n = nekudos[i];
+            var label = n.name + ' (' + n.hebrew + ')';
+            var rb = fromListCol.add('radiobutton', undefined, label);
+            rb.enabled = presentMap.hasOwnProperty(n.name) && presentMap[n.name] > 0;
+            rb._index = i; // store index into nekudos array
+            fromRadios.push(rb);
+            if (firstEnabledFromIndex === -1 && rb.enabled) firstEnabledFromIndex = fromRadios.length - 1;
         }
-        fromDropdown.selection = 0;
+        // Manual exclusivity across columns
+        function bindExclusive(radios) {
+            for (var r = 0; r < radios.length; r++) {
+                (function(idx){
+                    radios[idx].onClick = function(){
+                        for (var k = 0; k < radios.length; k++) { radios[k].value = (k === idx); }
+                    };
+                })(r);
+            }
+        }
+        bindExclusive(fromRadios);
+        if (firstEnabledFromIndex !== -1) { fromRadios[firstEnabledFromIndex].value = true; }
         
         // Change To section
         var toPanel = leftColumn.add('panel', undefined, 'Change To');
@@ -96,14 +116,21 @@
         toPanel.spacing = 6;
         toPanel.alignChildren = 'fill';
         
-        var toDropdown = toPanel.add('dropdownlist');
-        toDropdown.preferredSize.width = 250;
+        // Single-column radio list for Change To
+        var toListCol = toPanel.add('group');
+        toListCol.orientation = 'column';
+        toListCol.alignChildren = 'left';
         
-        // Populate Change To dropdown with all nekudos
+        var toRadios = [];
         for (var j = 0; j < nekudos.length; j++) {
-            var nekudaTo = nekudos[j];
-            toDropdown.add('item', nekudaTo.name + ' (' + nekudaTo.hebrew + ')');
+            var nt = nekudos[j];
+            var lbl = nt.name + ' (' + nt.hebrew + ')';
+            var rb2 = toListCol.add('radiobutton', undefined, lbl);
+            rb2.enabled = true; // always allow choosing any target
+            rb2._index = j; // store index into nekudos array
+            toRadios.push(rb2);
         }
+        bindExclusive(toRadios);
         // Intentionally do not preselect any item for "Change To" per UX requirement
         
         // Right column - Scope panel
@@ -112,6 +139,7 @@
         scopePanel.margins = 12;
         scopePanel.spacing = 6;
         scopePanel.alignChildren = 'left';
+        scopePanel.alignment = 'top';
         
         var scopeRadios = [];
         // Canonical order: All Documents, Document, Page, Story, Frame, Selected Text
@@ -130,6 +158,17 @@
             scopeRadio.scopeValue = scopeOptions[k].value;
             scopeRadios.push(scopeRadio);
         }
+        
+        // Fixed heights so each list fits all 16 items in one column
+        try {
+            var fixedPanelH = 440; // fits 16 radios comfortably
+            fromPanel.preferredSize.height = fixedPanelH;
+            toPanel.preferredSize.height = fixedPanelH;
+            // Scope panel height: ensure at least the same height for alignment
+            scopePanel.preferredSize.height = fixedPanelH;
+            // Window height: panels + margins + buttons area
+            dialog.preferredSize.height = 560;
+        } catch (_eSizing) {}
         
         // Determine selection context first
         var hasTextFrameSelection = false;
@@ -194,8 +233,7 @@
         buttonGroup.spacing = 10;
         
         var cancelButton = buttonGroup.add('button', undefined, 'Cancel');
-        // Do not assign 'ok' name to avoid auto-closing the dialog before handler runs
-        var runButton = buttonGroup.add('button', undefined, 'Run');
+        var runButton = buttonGroup.add('button', undefined, 'Run', {name: 'ok'});
         
         // Cancel button handler
         cancelButton.onClick = function() {
@@ -204,15 +242,17 @@
         
         // Run button handler
         runButton.onClick = function() {
-            var fromIndex = fromDropdown.selection ? fromDropdown.selection.index : -1;
-            var toIndex = toDropdown.selection ? toDropdown.selection.index : -1;
+            var fromIndex = -1;
+            for (var f = 0; f < fromRadios.length; f++) { if (fromRadios[f].value) { fromIndex = fromRadios[f]._index; break; } }
+            var toIndex = -1;
+            for (var t = 0; t < toRadios.length; t++) { if (toRadios[t].value) { toIndex = toRadios[t]._index; break; } }
             
             if (fromIndex === -1 || toIndex === -1) {
                 alert("Please select both 'Change From' and 'Change To' options.");
                 return;
             }
             
-            var fromNekuda = foundNekudos[fromIndex];
+            var fromNekuda = nekudos[fromIndex];
             var toNekuda = nekudos[toIndex];
             
             if (fromNekuda.unicode === toNekuda.unicode) {
@@ -331,8 +371,7 @@
             // Wrap in undo group
             app.doScript(function() {
                 changesMade = performChange(fromNekuda, toNekuda, targets);
-            }, undefined, undefined,
-               (ScriptUI.environment.keyboardState.shiftKey ? UndoModes.AUTO_UNDO : UndoModes.ENTIRE_SCRIPT),
+            }, undefined, undefined, UndoModes.ENTIRE_SCRIPT,
                "Change Nekuda: " + fromNekuda.name + " → " + toNekuda.name);
             
             // Show completion message based on whether changes were made
