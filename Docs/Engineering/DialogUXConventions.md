@@ -27,6 +27,52 @@ Notes:
 - Secondary informational dialogs (e.g., read-only reports) may use different primary actions (e.g., Close), while main utility dialogs typically use Cancel/Run.
 - Avoid scope-only dialogs; integrate scope into the main dialog.
 
+## Confirmation Dialogs
+
+- Use InDesign dialogs (ScriptUI modal windows or `app.dialogs`) for confirmations and destructive-action prompts where possible, rather than system dialogs such as `alert`/`confirm`/`prompt`.
+- Why this is preferred:
+  - Visual consistency with the rest of the script UI and InDesign themes.
+  - Clear default/cancel roles and keyboard handling (Enter/Esc) within one dialog flow.
+  - Multi-line messages and layout control without truncation.
+  - Easier localization and reuse of shared strings.
+- Acceptable exceptions:
+  - Critical, one-off error states where the script must stop immediately and no parent dialog exists.
+  - Very simple post-run notifications where a full dialog would be excessive.
+- Pattern (ScriptUI):
+
+```jsx
+// ScriptUI confirmation pattern
+var win = new Window('dialog', 'Confirm action');
+win.orientation = 'column';
+win.margins = 16;
+win.spacing = 12;
+
+win.add('statictext', undefined, 'Delete selected items? This cannot be undone.');
+var row = win.add('group'); row.alignment = 'right'; row.spacing = 8;
+var btnCancel = row.add('button', undefined, 'Cancel', { name: 'cancel' });
+var btnOk = row.add('button', undefined, 'Delete', { name: 'ok' });
+
+win.defaultElement = btnOk;
+win.cancelElement = btnCancel;
+
+var result = win.show(); // 1 = OK, 2 = Cancel
+if (result !== 1) { /* user canceled */ }
+```
+
+- Pattern (classic `app.dialogs`):
+
+```jsx
+var dlg = app.dialogs.add({ name: 'Confirm action' });
+with (dlg.dialogColumns.add()) {
+  staticTexts.add({ staticLabel: 'Delete selected items? This cannot be undone.' });
+}
+var ok = dlg.show(); // true if OK, false if Cancel
+dlg.destroy();
+if (!ok) { /* user canceled */ }
+```
+
+- Do not use `confirm()` or `prompt()`; avoid `alert()` for confirmations. If alerting an error, keep it concise and prefer integrating messages into the existing dialog when feasible.
+
 ## Progress Windows (Run-time Feedback)
 
 - During long-running operations, show a small progress window to provide feedback and (when applicable) an abort option.
