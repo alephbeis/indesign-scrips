@@ -157,6 +157,7 @@ function isGraphic(item) {
 
 * Prefer **non-blocking** workflows: compute first, then apply.
 * Keep UI responsive; don’t redraw the layout repeatedly during loops.
+* For confirmations and destructive prompts, prefer InDesign dialogs over system dialogs; see [Dialog UI/UX Conventions](./DialogUXConventions.md#confirmation-dialogs).
 
 ---
 

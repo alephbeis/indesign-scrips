@@ -4,7 +4,7 @@
 
 The Change Nekuda script provides a flexible interface for changing any Hebrew vowel mark (Nekuda) to any other. Unlike the previous version with hardcoded transformations, this enhanced version gives users complete flexibility by:
 
-- **Change From**: Dynamically lists all Nekudos found in the current document with occurrence counts
+- **Change From**: Lists all Nekudos. Only those present in the current document are enabled for selection
 - **Change To**: Shows all available Nekudos for replacement
 - **Full Flexibility**: Allows any combination of Nekuda changes
 
@@ -13,8 +13,8 @@ The Change Nekuda script provides a flexible interface for changing any Hebrew v
 1. Open an InDesign document containing Hebrew text with vowel marks
 2. Run the `ChangeNekuda.jsx` script from the Scripts panel
 3. The script will automatically scan the document for existing Nekudos
-4. In the "Change From" dropdown, select the Nekuda you want to replace (shows only those found in document)
-5. In the "Change To" dropdown, select the target Nekuda (shows all available options). Note: this dropdown starts with no selection and requires you to choose an option.
+4. In the "Change From" list, select the Nekuda you want to replace (only Nekudos present in the document are enabled)
+5. In the "Change To" list, select the target Nekuda (shows all available options). Note: this list starts with no selection and requires you to choose an option.
 6. Choose the scope (Document, Selection, Story, Page, Frame, or All Documents)
 7. Click "Run" to execute the transformation. If selections are missing, you'll be prompted and the dialog remains open; otherwise, the dialog closes and the script runs, showing a completion message.
 

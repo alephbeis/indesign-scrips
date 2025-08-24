@@ -11,15 +11,14 @@ The `CharacterCleanup.jsx` script provides comprehensive Hebrew text cleanup thr
 3. Configure your cleanup options in the dialog:
    - Select specific cleanup actions or use "All" for comprehensive cleanup
    - Choose the scope (All Documents, Document, Story, Page, or Selection)
-4. Review the confirmation dialog showing selected actions
-5. Click "Yes" to execute the cleanup operations
+4. Click "Run" to execute the cleanup operations
 
 ## Features
 
 - **Multi-Select Interface**: Choose specific cleanup actions or select all for comprehensive processing
 - **Hebrew Text Expertise**: Specialized for Hebrew character normalization and text structure
 - **Flexible Scope Control**: Apply operations to documents, stories, pages, or selections
-- **Confirmation Workflow**: Review selected actions before execution with detailed confirmation
+- **Layout Guide Cleanup**: Remove non-master page and spread guides while preserving master guides
 - **Performance Optimized**: Efficient GREP processing with proper preference management
 - **Comprehensive Reporting**: Detailed feedback on applied changes and completion status
 
@@ -48,6 +47,11 @@ The `CharacterCleanup.jsx` script provides comprehensive Hebrew text cleanup thr
 - **Pattern**: `\r{2,}\z` → `\r`
 - **Effect**: Cleans up story endings by removing redundant paragraph marks
 
+### Remove Non-Master Guides
+- **Purpose**: Removes guides that are not from master pages (page and spread guides on document pages)
+- **Effect**: Cleans layout guides while preserving any guides defined on master spreads/pages
+- **Scope Behavior**: Respects the selected scope. For Story/Frame/Selection, guides are removed on the pages containing the selection
+
 ## User Interface
 
 ### Cleanup Selection Panel
@@ -62,10 +66,8 @@ The `CharacterCleanup.jsx` script provides comprehensive Hebrew text cleanup thr
 - **Page (active)**: Process only the currently active page
 - **Selection**: Process only the selected content
 
-### Confirmation System
-- **Action Summary**: Lists selected cleanup actions with count
-- **Detailed Preview**: Shows exactly which operations will be performed
-- **Yes/No Confirmation**: Final approval before executing changes
+### Completion Summary
+- After execution, a completion dialog lists which actions were performed and whether any changes were applied
 
 ## Technical Details
 

@@ -71,19 +71,12 @@ The script uses GREP find/replace with Unicode escape sequences for precise mark
 - Each mark type has its own dedicated function with specific Unicode patterns
 - The `changeAcrossTargets` function handles bulk operations across multiple text objects
 - Scope resolution automatically determines the correct text targets based on user selection
-- Number formatting includes comma separators for large counts (e.g., "1,234 marks removed")
 
 Key technical features:
 - Proper find/change preferences cleanup to avoid conflicts
 - Robust error handling for invalid selections or missing text
 - Support for complex text objects including stories, pages, and multi-document operations
 - Efficient pattern matching using negative lookbehind for conditional meteg removal
-
-## Notes on Counts
-
-- The reported count reflects the number of Hebrew marks removed, not the number of frames or stories.
-  - For Page scope, the count is the total marks found within text frames on the active page.
-  - For Frame scope, the count is the total marks found within the selected frame(s).
 
 ## Compatibility
 
