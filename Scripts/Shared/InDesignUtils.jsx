@@ -11,7 +11,7 @@
  */
 
 // Namespace to avoid conflicts
-if (typeof InDesignUtils === 'undefined') InDesignUtils = {};
+if (typeof InDesignUtils === "undefined") InDesignUtils = {};
 
 InDesignUtils.version = "1.0.0";
 
@@ -26,21 +26,21 @@ InDesignUtils.UI = InDesignUtils.UI || {};
  * @param {string} message - Message to display
  * @param {Object} options - Optional dialog options
  */
-InDesignUtils.UI.showMessage = function(title, message, options) {
+InDesignUtils.UI.showMessage = function (title, message, options) {
     options = options || {};
     try {
-        var win = new Window('dialog', title || 'Message');
-        win.orientation = 'column';
+        var win = new Window("dialog", title || "Message");
+        win.orientation = "column";
         win.margins = options.margins || 16;
         win.spacing = options.spacing || 12;
 
-        var txt = win.add('statictext', undefined, String(message), { multiline: true });
+        var txt = win.add("statictext", undefined, String(message), { multiline: true });
         txt.characters = options.characters || 60;
 
-        var row = win.add('group');
-        row.alignment = 'right';
+        var row = win.add("group");
+        row.alignment = "right";
         row.spacing = 8;
-        var ok = row.add('button', undefined, 'OK', { name: 'ok' });
+        var ok = row.add("button", undefined, "OK", { name: "ok" });
         win.defaultElement = ok;
         win.cancelElement = ok;
 
@@ -51,7 +51,9 @@ InDesignUtils.UI.showMessage = function(title, message, options) {
         return win.show();
     } catch (e) {
         // Fallback to console
-        try { $.writeln(String(message)); } catch(_) {}
+        try {
+            $.writeln(String(message));
+        } catch (_) {}
         return 1;
     }
 };
@@ -61,14 +63,16 @@ InDesignUtils.UI.showMessage = function(title, message, options) {
  * @param {string} message - Message to display
  * @param {string} title - Optional title
  */
-InDesignUtils.UI.alert = function(message, title) {
+InDesignUtils.UI.alert = function (message, title) {
     try {
-        return InDesignUtils.UI.showMessage(title || 'Alert', String(message));
+        return InDesignUtils.UI.showMessage(title || "Alert", String(message));
     } catch (e) {
         try {
-            if (typeof alert === 'function') return alert(message);
-        } catch(_) {
-            try { $.writeln(String(message)); } catch(__) {}
+            if (typeof alert === "function") return alert(message);
+        } catch (_) {
+            try {
+                $.writeln(String(message));
+            } catch (__) {}
         }
     }
     return 1;
@@ -80,24 +84,24 @@ InDesignUtils.UI.alert = function(message, title) {
  * @param {Object} options - Optional configuration
  * @returns {Object} Progress window controller
  */
-InDesignUtils.UI.createProgressWindow = function(title, options) {
+InDesignUtils.UI.createProgressWindow = function (title, options) {
     options = options || {};
     var progressWin = null;
     var progressBar = null;
     var progressLabel = null;
 
     try {
-        progressWin = new Window('palette', title || 'Working...');
-        progressWin.orientation = 'column';
+        progressWin = new Window("palette", title || "Working...");
+        progressWin.orientation = "column";
         progressWin.margins = 16;
         progressWin.spacing = 12;
         progressWin.preferredSize.width = options.width || 400;
 
         if (options.showLabel !== false) {
-            progressLabel = progressWin.add('statictext', undefined, options.initialText || 'Processing...');
+            progressLabel = progressWin.add("statictext", undefined, options.initialText || "Processing...");
         }
 
-        progressBar = progressWin.add('progressbar', undefined, 0, 100);
+        progressBar = progressWin.add("progressbar", undefined, 0, 100);
         progressBar.preferredSize.width = (options.width || 400) - 32;
 
         progressWin.show();
@@ -107,25 +111,25 @@ InDesignUtils.UI.createProgressWindow = function(title, options) {
             bar: progressBar,
             label: progressLabel,
 
-            update: function(value, text) {
+            update: function (value, text) {
                 try {
-                    if (typeof value === 'number') progressBar.value = Math.max(0, Math.min(100, value));
+                    if (typeof value === "number") progressBar.value = Math.max(0, Math.min(100, value));
                     if (text && progressLabel) progressLabel.text = String(text);
                     progressWin.update();
-                } catch(_) {}
+                } catch (_) {}
             },
 
-            close: function() {
+            close: function () {
                 try {
                     if (progressWin) progressWin.close();
                     progressWin = null;
-                } catch(_) {}
+                } catch (_) {}
             }
         };
     } catch (e) {
         return {
-            update: function() {},
-            close: function() {}
+            update: function () {},
+            close: function () {}
         };
     }
 };
@@ -142,12 +146,14 @@ InDesignUtils.Error = InDesignUtils.Error || {};
  * @param {boolean} silent - Whether to suppress error logging
  * @returns {*} Function result or default value
  */
-InDesignUtils.Error.safe = function(fn, defaultValue, silent) {
+InDesignUtils.Error.safe = function (fn, defaultValue, silent) {
     try {
         return fn();
     } catch (e) {
         if (!silent) {
-            try { $.writeln("Safe operation failed: " + e.toString()); } catch(_) {}
+            try {
+                $.writeln("Safe operation failed: " + e.toString());
+            } catch (_) {}
         }
         return defaultValue;
     }
@@ -158,7 +164,7 @@ InDesignUtils.Error.safe = function(fn, defaultValue, silent) {
  * @param {Object} obj - Object to validate
  * @returns {boolean} True if object exists and is valid
  */
-InDesignUtils.Error.isValid = function(obj) {
+InDesignUtils.Error.isValid = function (obj) {
     try {
         return obj && obj.isValid === true;
     } catch (e) {
@@ -175,8 +181,8 @@ InDesignUtils.Objects = InDesignUtils.Objects || {};
  * Get document safely
  * @returns {Document|null} Active document or null
  */
-InDesignUtils.Objects.getActiveDocument = function() {
-    return InDesignUtils.Error.safe(function() {
+InDesignUtils.Objects.getActiveDocument = function () {
+    return InDesignUtils.Error.safe(function () {
         if (app.documents.length === 0) return null;
         var doc = app.activeDocument;
         return InDesignUtils.Error.isValid(doc) ? doc : null;
@@ -187,12 +193,12 @@ InDesignUtils.Objects.getActiveDocument = function() {
  * Get selection safely
  * @returns {Array|null} Selection array or null
  */
-InDesignUtils.Objects.getSelection = function() {
-    return InDesignUtils.Error.safe(function() {
+InDesignUtils.Objects.getSelection = function () {
+    return InDesignUtils.Error.safe(function () {
         var doc = InDesignUtils.Objects.getActiveDocument();
         if (!doc) return null;
         var sel = doc.selection;
-        return (sel && sel.length > 0) ? sel : null;
+        return sel && sel.length > 0 ? sel : null;
     }, null);
 };
 
@@ -201,8 +207,8 @@ InDesignUtils.Objects.getSelection = function() {
  * @param {Document} document - Document to search in
  * @returns {Array} Array of page names/locations where overset text was found
  */
-InDesignUtils.Objects.findOversetFrames = function(document) {
-    return InDesignUtils.Error.safe(function() {
+InDesignUtils.Objects.findOversetFrames = function (document) {
+    return InDesignUtils.Error.safe(function () {
         if (!document || !InDesignUtils.Error.isValid(document)) return [];
 
         var hits = [];
@@ -211,16 +217,28 @@ InDesignUtils.Objects.findOversetFrames = function(document) {
         for (var i = 0; i < textFrames.length; i++) {
             var tf = textFrames[i];
             if (InDesignUtils.Error.isValid(tf)) {
-                var isOverflowing = InDesignUtils.Error.safe(function() {
-                    return tf.overflows === true;
-                }, false, true);
+                var isOverflowing = InDesignUtils.Error.safe(
+                    (function (textFrame) {
+                        return function () {
+                            return textFrame.overflows === true;
+                        };
+                    })(tf),
+                    false,
+                    true
+                );
 
                 if (isOverflowing) {
-                    var pageName = InDesignUtils.Error.safe(function() {
-                        return tf.parentPage ? tf.parentPage.name : null;
-                    }, null, true);
+                    var pageName = InDesignUtils.Error.safe(
+                        (function (textFrame) {
+                            return function () {
+                                return textFrame.parentPage ? textFrame.parentPage.name : null;
+                            };
+                        })(tf),
+                        null,
+                        true
+                    );
 
-                    hits.push(pageName ? ("Page " + pageName) : "Pasteboard/No page");
+                    hits.push(pageName ? "Page " + pageName : "Pasteboard/No page");
                 }
             }
         }
@@ -240,14 +258,18 @@ InDesignUtils.Layers = InDesignUtils.Layers || {};
  * @param {boolean} visible - Visibility state to set
  * @returns {boolean} True if successful
  */
-InDesignUtils.Layers.setVisibility = function(layer, visible) {
-    return InDesignUtils.Error.safe(function() {
-        if (InDesignUtils.Error.isValid(layer)) {
-            layer.visible = Boolean(visible);
-            return true;
-        }
-        return false;
-    }, false, true);
+InDesignUtils.Layers.setVisibility = function (layer, visible) {
+    return InDesignUtils.Error.safe(
+        function () {
+            if (InDesignUtils.Error.isValid(layer)) {
+                layer.visible = Boolean(visible);
+                return true;
+            }
+            return false;
+        },
+        false,
+        true
+    );
 };
 
 /**
@@ -255,8 +277,8 @@ InDesignUtils.Layers.setVisibility = function(layer, visible) {
  * @param {Array} layers - Array of layers to hide
  * @returns {number} Number of layers successfully hidden
  */
-InDesignUtils.Layers.hideAll = function(layers) {
-    return InDesignUtils.Error.safe(function() {
+InDesignUtils.Layers.hideAll = function (layers) {
+    return InDesignUtils.Error.safe(function () {
         if (!layers || !layers.length) return 0;
 
         var count = 0;
@@ -274,8 +296,8 @@ InDesignUtils.Layers.hideAll = function(layers) {
  * @param {Array} visibilityState - Array of {layer, visible} objects
  * @returns {number} Number of layers successfully restored
  */
-InDesignUtils.Layers.restoreVisibility = function(visibilityState) {
-    return InDesignUtils.Error.safe(function() {
+InDesignUtils.Layers.restoreVisibility = function (visibilityState) {
+    return InDesignUtils.Error.safe(function () {
         if (!visibilityState || !visibilityState.length) return 0;
 
         var count = 0;
@@ -302,7 +324,7 @@ InDesignUtils.Prefs = InDesignUtils.Prefs || {};
  * @param {MeasurementUnits} units - Units to use during execution
  * @returns {*} Function result
  */
-InDesignUtils.Prefs.withUnits = function(fn, units) {
+InDesignUtils.Prefs.withUnits = function (fn, units) {
     var sp = app.scriptPreferences;
     var originalUnit = null;
 
@@ -313,7 +335,7 @@ InDesignUtils.Prefs.withUnits = function(fn, units) {
     } finally {
         try {
             if (originalUnit !== null) sp.measurementUnit = originalUnit;
-        } catch(_) {}
+        } catch (_) {}
     }
 };
 
@@ -322,7 +344,7 @@ InDesignUtils.Prefs.withUnits = function(fn, units) {
  * @param {Function} fn - Function to execute
  * @returns {*} Function result
  */
-InDesignUtils.Prefs.withoutRedraw = function(fn) {
+InDesignUtils.Prefs.withoutRedraw = function (fn) {
     var sp = app.scriptPreferences;
     var originalRedraw = null;
 
@@ -333,7 +355,7 @@ InDesignUtils.Prefs.withoutRedraw = function(fn) {
     } finally {
         try {
             if (originalRedraw !== null) sp.enableRedraw = originalRedraw;
-        } catch(_) {}
+        } catch (_) {}
     }
 };
 
@@ -343,7 +365,7 @@ InDesignUtils.Prefs.withoutRedraw = function(fn) {
  * @param {Object} tempPrefs - Temporary preferences to set
  * @returns {*} Function result
  */
-InDesignUtils.Prefs.withSafePreferences = function(fn, tempPrefs) {
+InDesignUtils.Prefs.withSafePreferences = function (fn, tempPrefs) {
     var sp = app.scriptPreferences;
     var original = {};
 
@@ -364,7 +386,7 @@ InDesignUtils.Prefs.withSafePreferences = function(fn, tempPrefs) {
         try {
             sp.measurementUnit = original.measurementUnit;
             sp.enableRedraw = original.enableRedraw;
-        } catch(_) {}
+        } catch (_) {}
     }
 };
 
@@ -380,7 +402,7 @@ InDesignUtils.FindChange = InDesignUtils.FindChange || {};
  * @param {Object} options - Optional configuration {inclusive: boolean}
  * @returns {*} Function result
  */
-InDesignUtils.FindChange.withCleanPrefs = function(fn, scope, options) {
+InDesignUtils.FindChange.withCleanPrefs = function (fn, scope, options) {
     options = options || {};
     var savedFindOptions = null;
 
@@ -405,7 +427,7 @@ InDesignUtils.FindChange.withCleanPrefs = function(fn, scope, options) {
                 fco.includeLockedStoriesForFind = true;
                 fco.includeMasterPages = true;
                 fco.includeOversetText = true;
-            } catch(_) {}
+            } catch (_) {}
         }
 
         return fn(scope || InDesignUtils.Objects.getActiveDocument());
@@ -414,18 +436,23 @@ InDesignUtils.FindChange.withCleanPrefs = function(fn, scope, options) {
         if (savedFindOptions) {
             try {
                 var restoreFco = app.findChangeTextOptions;
-                if (typeof savedFindOptions.includeFootnotes !== "undefined") restoreFco.includeFootnotes = savedFindOptions.includeFootnotes;
-                if (typeof savedFindOptions.includeHiddenLayers !== "undefined") restoreFco.includeHiddenLayers = savedFindOptions.includeHiddenLayers;
-                if (typeof savedFindOptions.includeLockedLayersForFind !== "undefined") restoreFco.includeLockedLayersForFind = savedFindOptions.includeLockedLayersForFind;
-                if (typeof savedFindOptions.includeLockedStoriesForFind !== "undefined") restoreFco.includeLockedStoriesForFind = savedFindOptions.includeLockedStoriesForFind;
-                if (typeof savedFindOptions.includeMasterPages !== "undefined") restoreFco.includeMasterPages = savedFindOptions.includeMasterPages;
-            } catch(_) {}
+                if (typeof savedFindOptions.includeFootnotes !== "undefined")
+                    restoreFco.includeFootnotes = savedFindOptions.includeFootnotes;
+                if (typeof savedFindOptions.includeHiddenLayers !== "undefined")
+                    restoreFco.includeHiddenLayers = savedFindOptions.includeHiddenLayers;
+                if (typeof savedFindOptions.includeLockedLayersForFind !== "undefined")
+                    restoreFco.includeLockedLayersForFind = savedFindOptions.includeLockedLayersForFind;
+                if (typeof savedFindOptions.includeLockedStoriesForFind !== "undefined")
+                    restoreFco.includeLockedStoriesForFind = savedFindOptions.includeLockedStoriesForFind;
+                if (typeof savedFindOptions.includeMasterPages !== "undefined")
+                    restoreFco.includeMasterPages = savedFindOptions.includeMasterPages;
+            } catch (_) {}
         }
 
         // Clear preferences after
         try {
             app.findTextPreferences = app.changeTextPreferences = NothingEnum.nothing;
-        } catch(_) {}
+        } catch (_) {}
     }
 };
 
@@ -438,7 +465,7 @@ InDesignUtils.Utils = InDesignUtils.Utils || {};
  * Get script file information
  * @returns {Object} Script file information
  */
-InDesignUtils.Utils.getScriptInfo = function() {
+InDesignUtils.Utils.getScriptInfo = function () {
     try {
         var scriptFile = File($.fileName);
         return {
@@ -463,7 +490,7 @@ InDesignUtils.Utils.getScriptInfo = function() {
  * @param {boolean} required - Whether file is required (throws on missing)
  * @returns {boolean} True if loaded successfully
  */
-InDesignUtils.Utils.loadUtility = function(fileName, required) {
+InDesignUtils.Utils.loadUtility = function (fileName, required) {
     try {
         var scriptInfo = InDesignUtils.Utils.getScriptInfo();
         if (!scriptInfo.folder) {
@@ -495,14 +522,14 @@ InDesignUtils.PDF = InDesignUtils.PDF || {};
  * Replaces invalid characters with the provided replacement (default: underscore)
  * Invalid characters: \/ : * ? " < > |
  */
-InDesignUtils.PDF.sanitizeFilenamePart = function(s, replacement) {
-    var rep = (replacement == null) ? "_" : String(replacement);
+InDesignUtils.PDF.sanitizeFilenamePart = function (s, replacement) {
+    var rep = replacement == null ? "_" : String(replacement);
     try {
-        return String(s || "").replace(new RegExp('[\\/:*?"<>|]', 'g'), rep);
+        return String(s || "").replace(new RegExp('[\\/:*?"<>|]', "g"), rep);
     } catch (e) {
         // Extremely defensive fallback using chained splits (should never be needed)
         var out = String(s || "");
-        var bad = ['/', '\\', ':', '*', '?', '"', '<', '>', '|'];
+        var bad = ["/", "\\", ":", "*", "?", '"', "<", ">", "|"];
         for (var i = 0; i < bad.length; i++) {
             var ch = bad[i];
             // split-join fallback because some engines struggle with edge-case regex construction
