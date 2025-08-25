@@ -4,9 +4,13 @@
   "version": "0.0.0",
   "description": "Utilities and export scripts for Adobe InDesign (ExtendScript)",
   "scripts": {
-    "lint": "eslint \"Scripts/**/*.jsx\""
+    "lint": "eslint \"Scripts/**/*.jsx\"",
+    "format": "prettier --write \"Scripts/**/*.jsx\" \"UXP/**/*.js\" \"*.json\" \"*.md\"",
+    "format:check": "prettier --check \"Scripts/**/*.jsx\" \"UXP/**/*.js\" \"*.json\" \"*.md\""
   },
   "devDependencies": {
-    "eslint": "^8.57.0"
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.6.2"
   }
 }

@@ -1,45 +1,23 @@
 {
   "root": true,
-  "ignorePatterns": ["**/*.jsxbin", "node_modules/", "**/dist/**"],
+  "extends": ["prettier"],
+
+  "ignorePatterns": [
+    "**/*.jsxbin",
+    "node_modules/",
+    "**/dist/**",
+    "**/build/**"
+  ],
+
+  //
+  // Base (shared) — modern JS defaults; stricter, browserless runtime.
+  //
   "env": {
     "browser": false,
     "node": false,
-    "es6": false
+    "es2021": true
   },
-  "parserOptions": { "ecmaVersion": 5, "sourceType": "script" },
-
-  "globals": {
-    "app": "readonly",
-    "$": "readonly",
-    "Window": "readonly",
-    "File": "readonly",
-    "Folder": "readonly",
-    "RulerOrigin": "readonly",
-    "PageSideOptions": "readonly",
-    "UndoModes": "readonly",
-    "ScriptLanguage": "readonly",
-    "ScriptUI": "readonly",
-    "LocationOptions": "readonly",
-    "NothingEnum": "readonly",
-    "ExportFormat": "readonly",
-    "AutoSizingTypeEnum": "readonly",
-    "FirstBaseline": "readonly",
-    "Justification": "readonly",
-    "AutoKernType": "readonly",
-    "VerticalJustification": "readonly",
-    "MeasurementUnits": "readonly",
-    "SaveOptions": "readonly",
-    "SpecialCharacters": "readonly",
-    "OverrideType": "readonly",
-    "BridgeTalk": "readonly",
-    "ExternalObject": "readonly",
-    "Socket": "readonly",
-    "XML": "readonly",
-    "XMLList": "readonly",
-    "AnchorPoint": "readonly",
-    "CoordinateSpaces": "readonly",
-    "alert": "writable"
-  },
+  "parserOptions": { "ecmaVersion": 2021, "sourceType": "module" },
 
   "rules": {
     "no-undef": "error",
@@ -48,7 +26,7 @@
     "no-unreachable": "error",
     "no-unused-vars": ["warn", { "vars": "all", "args": "none", "varsIgnorePattern": "^_" }],
     "valid-typeof": "error",
-    "eqeqeq": ["warn", "allow-null"],
+    "eqeqeq": ["error", "smart"],
     "no-extra-semi": "warn",
     "no-trailing-spaces": "warn",
     "no-fallthrough": "error",
@@ -64,23 +42,101 @@
     "comma-dangle": ["error", "never"],
     "semi": ["error", "always"],
     "consistent-return": "off",
-    "no-var": "off",
-    "prefer-const": "off",
+    "no-var": "error",
+    "prefer-const": "error",
     "prefer-let": "off",
     "no-template-curly-in-string": "error",
     "no-useless-escape": "warn"
   },
 
   "overrides": [
+    //
+    // 1) UXP plugin JavaScript — ES modules, modern syntax, no browser globals.
+    //    Adjust the "files" globs to match your UXP plugin source layout.
+    //
+    {
+      "files": [
+        "uxp/**/*.js",
+        "plugin/**/*.js",
+        "src/**/*.js"
+      ],
+      "env": {
+        "browser": false,
+        "node": false,
+        "es2021": true
+      },
+      "globals": {
+        "uxp": "readonly",
+        "console": "readonly"
+      },
+      "parserOptions": { "ecmaVersion": 2021, "sourceType": "module" },
+      "rules": {
+        "no-var": "error",
+        "prefer-const": "error",
+        "no-alert": "error",
+        "no-new-func": "error",
+        "no-restricted-globals": ["error", "Window", "ScriptUI", "BridgeTalk", "File", "Folder"]
+      }
+    },
+
+    //
+    // 2) ExtendScript (.jsx) — legacy ES3/ES5 ScriptUI/DOM with InDesign globals.
+    //    Keeps your existing behavior and globals for legacy scripts.
+    //
     {
       "files": ["Scripts/**/*.jsx"],
+      "env": {
+        "browser": false,
+        "node": false,
+        "es6": false
+      },
       "parserOptions": { "ecmaVersion": 3, "sourceType": "script" },
+      "globals": {
+        "app": "readonly",
+        "$": "readonly",
+        "Window": "readonly",
+        "File": "readonly",
+        "Folder": "readonly",
+        "RulerOrigin": "readonly",
+        "PageSideOptions": "readonly",
+        "UndoModes": "readonly",
+        "ScriptLanguage": "readonly",
+        "ScriptUI": "readonly",
+        "LocationOptions": "readonly",
+        "NothingEnum": "readonly",
+        "ExportFormat": "readonly",
+        "AutoSizingTypeEnum": "readonly",
+        "FirstBaseline": "readonly",
+        "Justification": "readonly",
+        "AutoKernType": "readonly",
+        "VerticalJustification": "readonly",
+        "MeasurementUnits": "readonly",
+        "SaveOptions": "readonly",
+        "SpecialCharacters": "readonly",
+        "OverrideType": "readonly",
+        "BridgeTalk": "readonly",
+        "ExternalObject": "readonly",
+        "Socket": "readonly",
+        "XML": "readonly",
+        "XMLList": "readonly",
+        "AnchorPoint": "readonly",
+        "CoordinateSpaces": "readonly",
+        "InDesignUtils": "readonly",
+        "alert": "writable"
+      },
       "rules": {
         "no-template-curly-in-string": "error",
         "comma-dangle": ["error", "never"],
-        "no-useless-concat": "warn"
+        "no-useless-concat": "warn",
+        "no-var": "off",
+        "prefer-const": "off",
+        "semi": ["error", "always"]
       }
     },
+
+    //
+    // 3) Specific legacy exceptions (unchanged from your original).
+    //
     {
       "files": ["Scripts/Export/BulkPDFGenerator.jsx"],
       "rules": { "no-undef": "off" }
