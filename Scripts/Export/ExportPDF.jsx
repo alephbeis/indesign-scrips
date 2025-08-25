@@ -246,6 +246,31 @@ Usage:
 
     var preset = presetObjs[presetDropdown.selection.index];
 
+    // Overset text check: abort export if any text frame overflows
+    function _findOversetFrames(d) {
+        var hits = [];
+        try {
+            var tfs = d.textFrames;
+            for (var i = 0; i < tfs.length; i++) {
+                var tf = tfs[i];
+                if (tf && tf.isValid) {
+                    try {
+                        if (tf.overflows === true) {
+                            var pg = null; try { pg = tf.parentPage ? tf.parentPage.name : null; } catch(_) {}
+                            hits.push(pg ? ("Page " + pg) : "Pasteboard/No page");
+                        }
+                    } catch(_eOf) {}
+                }
+            }
+        } catch(_eAll) {}
+        return hits;
+    }
+    var __overs = _findOversetFrames(doc);
+    if (__overs && __overs.length > 0) {
+        notify("Overset text detected in " + __overs.length + " text frame(s). Please fix overset before exporting.");
+        return;
+    }
+
     // Create progress palette for user feedback during export
     var _prog = (function(){
         try {
@@ -344,11 +369,11 @@ Usage:
 
             // Set page range and export based on PDF type
             if (useInteractive) {
-                _prog.set("Exporting Interactive PDF with page range: " + pageRange, 60);
+                _prog.set("Exporting Interactive PDF…", 60);
                 app.interactivePDFExportPreferences.pageRange = pageRange;
                 doc.exportFile(ExportFormat.INTERACTIVE_PDF, outFile, false);
             } else {
-                _prog.set("Exporting PDF with page range: " + pageRange, 60);
+                _prog.set("Exporting PDF…", 60);
                 app.pdfExportPreferences.pageRange = pageRange;
                 doc.exportFile(ExportFormat.PDF_TYPE, outFile, false, preset);
             }

@@ -65,6 +65,7 @@ Notes:
 
     var srcDoc = app.activeDocument;
 
+
     // Helper: Get base name without extension
     function getBaseName(name) {
         if (!name) return "Export";

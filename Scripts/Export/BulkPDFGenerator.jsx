@@ -76,7 +76,7 @@ function displayUI(){
 					setCheckboxes[i] = add("checkbox", undefined, sets[i][0].setName);
 					setCheckboxes[i].onClick = function(){
 						combinationText.text = getPermutations(sets, setCheckboxes);
-					}
+					};
 				}
 			}
 			with(add("panel", undefined, "Combinations")){
@@ -93,7 +93,7 @@ function displayUI(){
 		for (i = 0; i < nikkudPanel.children.length; i++){
 			nikkudPanel.children[i].value = !nikkudPanel.children[i].value;
 		}
-	}
+	};
 	r =  w.show();
 	// User cancelled operation
 	if (r === 2){
@@ -158,8 +158,33 @@ finally{
 	app.scriptPreferences.userInteractionLevel = UserInteractionLevels.INTERACT_WITH_ALL;
 }
 
+function _findOversetFrames(d){
+	var hits = [];
+	try{
+		var tfs = d.textFrames;
+		for (var i=0;i<tfs.length;i++){
+			var tf = tfs[i];
+			if (tf && tf.isValid){
+				try{
+					if (tf.overflows === true){
+						var pg = null; try { pg = tf.parentPage ? tf.parentPage.name : null; } catch(_){ }
+						hits.push(pg ? ("Page " + pg) : "Pasteboard/No page");
+					}
+				}catch(__){}
+			}
+		}
+	}catch(_e){}
+	return hits;
+}
+
 function main(){
 	var i, tempFile;
+	// Overset text check: abort export if any text frame overflows
+	var __overs = _findOversetFrames(nk.doc);
+	if (__overs && __overs.length > 0){
+		alert("Overset text detected in " + __overs.length + " text frame(s). Please fix overset before exporting.");
+		return;
+	}
 	// Turn off preflight of document just in case it's on (seriously slows things down)
 	nk.doc.preflightOptions.preflightOff = true;
 	setGREPPrefs();
@@ -487,7 +512,7 @@ function randomizeNikkud(){
 	app.changeGrepPreferences.changeTo = "$1ָ";
 	nk.doc.changeGrep();
 	// Remove kamatz after all sofios except nun and chaf
-	app.findGrepPreferences.findWhat = "([םצף])(ָ)"
+	app.findGrepPreferences.findWhat = "([םצף])(ָ)";
 	app.changeGrepPreferences.changeTo = "$1";
 	nk.doc.changeGrep();
 	// Change Nikkud name

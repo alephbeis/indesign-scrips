@@ -169,6 +169,31 @@ Usage:
         return;
     }
 
+    // Overset text check: abort export if any text frame overflows
+    function _findOversetFrames(d) {
+        var hits = [];
+        try {
+            var tfs = d.textFrames;
+            for (var i = 0; i < tfs.length; i++) {
+                var tf = tfs[i];
+                if (tf && tf.isValid) {
+                    try {
+                        if (tf.overflows === true) {
+                            var pg = null; try { pg = tf.parentPage ? tf.parentPage.name : null; } catch(_) {}
+                            hits.push(pg ? ("Page " + pg) : "Pasteboard/No page");
+                        }
+                    } catch(_eOf) {}
+                }
+            }
+        } catch(_eAll) {}
+        return hits;
+    }
+    var __overs = _findOversetFrames(doc);
+    if (__overs && __overs.length > 0) {
+        alert("Overset text detected in " + __overs.length + " text frame(s). Please fix overset before exporting.");
+        return;
+    }
+
     // Progress palette
     var _prog = (function(){
         try {
