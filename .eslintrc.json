@@ -30,6 +30,8 @@
     "Socket": "readonly",
     "XML": "readonly",
     "XMLList": "readonly",
+    "AnchorPoint": "readonly",
+    "CoordinateSpaces": "readonly",
     "alert": "writable"
   },
   "rules": {
