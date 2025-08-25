@@ -252,3 +252,32 @@ To ensure cross-platform compatibility, all files in this repository must use LF
 - Optionally, add a `.gitattributes` file in the repository root with `* text=auto` to enforce this setting at the project level.
 - Use an IDE or editor (e.g., WebStorm, VS Code) configured to use LF endings (e.g., in WebStorm: Settings > Editor > Code Style > Line Separator > set to Unix (\n)).
 - Avoid committing files with CRLF (Carriage Return + Line Feed) endings to prevent warnings and potential conflicts.
+
+
+---
+
+## 15) ESLint for ExtendScript (JSX)
+
+Key points of our configuration:
+- JavaScript version: ES3 for `Scripts/**/*.jsx` via parserOptions override; ES6 features (let/const, classes, modules) are not available in ExtendScript.
+- Host globals declared: `app`, `$`, `File`, `Folder`, etc., so `no-undef` can remain strict without flagging InDesign APIs.
+- Modern variable rules disabled: `no-var`, `prefer-const`, and `prefer-let` are off to match the ES3 runtime.
+
+Rules we enforce and why they’re appropriate:
+- no-undef (error): Prevents typos against host objects like `MeasurementUnits` or `UndoModes` and catches missing symbols early.
+- no-redeclare (error): Avoids subtle scope bugs common in ExtendScript where `var` is function-scoped.
+- no-dupe-args (error): Guards against duplicate parameter names that ExtendScript would allow but handle poorly.
+- no-unreachable (error): Catches dead code after `return/throw`, which can otherwise mask logic errors.
+- no-unused-vars (warn with underscore exception): Keeps scripts tidy without blocking patterns where placeholder args are needed.
+- valid-typeof (error): Prevents misspelling type strings (e.g., 'undefned').
+- eqeqeq (warn allowing null comparisons): Encourages strict equality while allowing the common `x == null` idiom to check for null or undefined.
+- light style checks (no-extra-semi, no-trailing-spaces): Low-risk consistency improvements.
+
+Special cases and overrides:
+- Some complex scripts (e.g., BulkPDFGenerator.jsx) have `no-undef` disabled due to dynamic scopes or host messaging (e.g., BridgeTalk). Limit this to known files and prefer adding missing globals to `.eslintrc.json` when practical.
+
+When adding new rules:
+- Favor safety rules that catch runtime hazards (`no-func-assign`, `no-sparse-arrays`) if they don’t cause churn.
+- Avoid rules that imply ES6+ constructs in JSX files.
+
+If targeting UXP/modern JS instead of ExtendScript, revisit the config to enable modern best practices (`prefer-const`, modules, etc.).

@@ -34,7 +34,8 @@
   },
   "rules": {
     "no-undef": "error",
-    "no-redeclare": "warn",
+    "no-redeclare": "error",
+    "no-dupe-args": "error",
     "no-unreachable": "error",
     "no-unused-vars": ["warn", { "vars": "all", "args": "none", "varsIgnorePattern": "^_" }],
     "valid-typeof": "error",
