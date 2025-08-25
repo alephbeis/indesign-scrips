@@ -14,8 +14,24 @@
     w.alignChildren = 'left';
     w.margins = 16;
     w.spacing = 12;
-    var st = w.add('statictext', undefined, String(text));
-    st.characters = 60;
+
+    var s = String(text || "");
+    var isMulti = (s.indexOf("\n") !== -1);
+    if (isMulti) {
+      var box = w.add('edittext', undefined, s, { multiline: true, readonly: true });
+      box.characters = 60; // width
+      try {
+        var lineCount = s.split(/\n/).length;
+        var h = 24 + (lineCount * 16);
+        if (h < 80) h = 80;
+        if (h > 400) h = 400;
+        box.preferredSize.height = h;
+      } catch (_eH) {}
+    } else {
+      var st = w.add('statictext', undefined, s);
+      st.characters = 60;
+    }
+
     var row = w.add('group'); row.alignment = 'right'; row.spacing = 8;
     var btn = row.add('button', undefined, 'Close', { name: 'ok' });
     w.defaultElement = btn; w.cancelElement = btn;
@@ -189,8 +205,7 @@
     }
     function updateOkState() {
       var isLayerOp = rbLayer.value;
-      var ok = isLayerOp ? selectedBothForLayer() : selectedBothForParent();
-      btnOK.enabled = ok;
+      btnOK.enabled = isLayerOp ? selectedBothForLayer() : selectedBothForParent();
     }
 
     // Wire up change handlers
@@ -322,8 +337,7 @@
         try {
           if (it.isValid && "itemLayer" in it && it.itemLayer === srcLayer) {
             var wasLocked = false; try { wasLocked = it.locked; } catch (e) {}
-            var ok = moveItemToLayer(it, dstLayer, opts.skipLocked, srcLayer);
-            if (ok) { movedCount++; movedItems.push(it); } else if (opts.skipLocked && wasLocked) skippedLocked++;
+            if (moveItemToLayer(it, dstLayer, opts.skipLocked, srcLayer)) { movedCount++; movedItems.push(it); } else if (opts.skipLocked && wasLocked) skippedLocked++;
           }
         } catch (e1) {}
       }
@@ -365,7 +379,7 @@
       lines.push("Moved " + formatNumber(movedCount) + " object(s)" + (opts.includeGuides ? (" and " + formatNumber(guideMoves) + " guide(s)") : "") + ".");
       if (opts.skipLocked && skippedLocked) lines.push("Skipped " + formatNumber(skippedLocked) + " locked item(s).");
       try {
-        var deletedLayerName = "";
+        var deletedLayerName;
         try { deletedLayerName = srcLayer && srcLayer.isValid ? srcLayer.name : "(unknown)"; } catch (_eName) { deletedLayerName = "(unknown)"; }
         srcLayer.remove();
         lines.push("Deleted layer: " + deletedLayerName);

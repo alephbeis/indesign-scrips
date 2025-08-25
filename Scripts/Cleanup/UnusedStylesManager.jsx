@@ -56,20 +56,20 @@
     }
     if (kind==="Paragraph"){
       // Prefer [No Paragraph Style] for replace-with-none semantics; fall back to basic paragraph
-      return byNames(doc.paragraphStyles, ["[No Paragraph Style]", "[Basic Paragraph]", "[Basic Paragraph Style]"]); 
+      return byNames(doc.paragraphStyles, ["[No Paragraph Style]", "[Basic Paragraph]", "[Basic Paragraph Style]"]);
     }
     if (kind==="Character"){
-      return byNames(doc.characterStyles, ["[None]"]); 
+      return byNames(doc.characterStyles, ["[None]"]);
     }
     if (kind==="Object"){
-      return byNames(doc.objectStyles, ["[None]"]); 
+      return byNames(doc.objectStyles, ["[None]"]);
     }
     if (kind==="Table"){
       // Use [None] if available (some builds expose it), otherwise [Basic Table]
-      return byNames(doc.tableStyles, ["[None]", "[Basic Table]"]); 
+      return byNames(doc.tableStyles, ["[None]", "[Basic Table]"]);
     }
     if (kind==="Cell"){
-      return byNames(doc.cellStyles, ["[None]"]); 
+      return byNames(doc.cellStyles, ["[None]"]);
     }
     return null;
   }
@@ -596,7 +596,7 @@
         if (it._isGroup){
           try{ s.remove(); delCount++; try { it.remove(); }catch(_eUIF){} continue; }catch(_egDel){ fail++; continue; }
         }
-        knd = it._kind || (function(){ try{ var t = getSelectedType(); return t; }catch(_g){ return null; } })();
+        knd = it._kind || (function(){ try{ return getSelectedType(); }catch(_g){ return null; } })();
         try{ if (knd === "All") knd = null; }catch(_eK){}
         try{
           if (!knd) {

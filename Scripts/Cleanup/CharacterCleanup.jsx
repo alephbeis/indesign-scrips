@@ -262,7 +262,7 @@
         for (var i = 0; i < toRun.length; i++) {
             var pair = toRun[i];
             var actionName = actionNames[Math.floor(i / (toRun.length / actionNames.length))];
-            
+
             // Special handling for double space removal - make it iterative
             if (pair[0] === "\\x{0020}\\x{0020}") {
                 if (changeIterativeTargets(pair[0], pair[1], targets)) {
@@ -699,7 +699,7 @@
         } else {
             completionDlg.add("statictext", undefined, "Character cleanup completed successfully!");
             completionDlg.add("statictext", undefined, "The following actions were performed:");
-            
+
             // Remove duplicates from changesApplied (avoid Array.prototype.indexOf for ExtendScript compatibility)
             var uniqueChanges = [];
             for (var i = 0; i < changesApplied.length; i++) {
@@ -714,7 +714,7 @@
                     uniqueChanges.push(changesApplied[i]);
                 }
             }
-            
+
             for (var j = 0; j < uniqueChanges.length; j++) {
                 completionDlg.add("statictext", undefined, "• " + uniqueChanges[j]);
             }
@@ -732,7 +732,7 @@
         okGroup.alignment = "center";
         var okButton = okGroup.add("button", undefined, "OK");
         okButton.onClick = function() { completionDlg.close(); };
-        
+
         completionDlg.show();
     }
 })();

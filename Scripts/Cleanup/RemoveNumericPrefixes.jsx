@@ -72,13 +72,7 @@
                 return ai - bi;
             });
 
-            // Compose listing text
-            var lines = [];
-            for (var j = 0; j < items.length; j++) {
-                var it = items[j];
-                var pageLabel = (it.index >= 0) ? ("Page " + it.name + " (" + (it.index + 1) + ")") : it.name;
-                lines.push(pageLabel + ": " + formatNumber(it.count));
-            }
+            // Compose listing text (no precomputation needed; UI builds directly from items)
             var pagesWithHits = items.length;
 
             var summaryText = formatNumber(count) + " occurrence" + (count === 1 ? "" : "s") + " across " + pagesWithHits + " page" + (pagesWithHits === 1 ? "" : "s") + ".";
@@ -96,7 +90,6 @@
                     return;
                 }
                 // else action === 'show' -> loop and recompute
-                continue;
             } else {
                 return;
             }
@@ -105,7 +98,6 @@
 
     if (action === "remove") {
         performRemoval(pattern, targets);
-        return;
     }
 
     // Helper: show combined main dialog (Scope only). Returns {action, scope} or null
@@ -192,7 +184,7 @@
         dialog.cancelElement = cancelBtn;
 
         var result = null;
-        
+
         function getScope() {
             var scope = "doc"; // default
             if (rbAllDocs.value) scope = "allDocs";
@@ -203,7 +195,7 @@
             else if (rbSelection.value) scope = "selection";
             return scope;
         }
-        
+
         runBtn.onClick = function(){
             result = { action: "remove", scope: getScope() };
             dialog.close(1);
@@ -228,7 +220,7 @@
         w.spacing = 12;
         var summary = w.add("statictext", undefined, summaryText);
         summary.characters = 70;
-        
+
         // Create container for the two-column layout
         var listContainer = w.add("panel", undefined, "Page Occurrences");
         listContainer.orientation = "column";
@@ -236,7 +228,7 @@
         listContainer.margins = 12;
         listContainer.preferredSize.width = 420;
         listContainer.preferredSize.height = 280;
-        
+
         // Header row
         var headerGroup = listContainer.add("group");
         headerGroup.orientation = "row";
@@ -248,35 +240,35 @@
         countHeader.preferredSize.width = 80;
         countHeader.graphics.font = ScriptUI.newFont("dialog", "Bold", 12);
         countHeader.justify = "right";
-        
+
         // Separator line
         var separator = listContainer.add("panel");
         separator.preferredSize.height = 2;
-        
+
         // Scrollable list container
         var scrollPanel = listContainer.add("panel");
         scrollPanel.orientation = "column";
         scrollPanel.alignChildren = "fill";
         scrollPanel.preferredSize.height = 200;
-        
+
         // Add rows for each item
         for (var i = 0; i < items.length; i++) {
             var item = items[i];
             var pageLabel = (item.index >= 0) ? ("Page " + item.name + " (" + (item.index + 1) + ")") : item.name;
-            
+
             var rowGroup = scrollPanel.add("group");
             rowGroup.orientation = "row";
             rowGroup.alignChildren = "top";
             rowGroup.margins = [0, 2, 0, 2];
-            
+
             var pageText = rowGroup.add("statictext", undefined, pageLabel);
             pageText.preferredSize.width = 280;
-            
+
             var countText = rowGroup.add("statictext", undefined, formatNumber(item.count));
             countText.preferredSize.width = 80;
             countText.justify = "right";
         }
-        
+
         var g = w.add("group");
         g.alignment = "right";
         var backBtn = g.add("button", undefined, "Back");
@@ -291,7 +283,7 @@
     // Helper: perform removal with confirmation and reporting across targets
     function performRemoval(pattern, targets) {
         // Count across targets, then change within a single undo step
-        var count = 0;
+        var count;
         var matches = findMatchesAcrossTargets(pattern, targets);
         count = matches ? matches.length : 0;
         if (count === 0) {
@@ -309,6 +301,8 @@
 
     function resolveScopeTargets(scope) {
         var tgts = [];
+        // shared temps (function-scoped to avoid duplicate var declarations)
+        var page, frames, i, tf, lines, firstChar, lastChar, lastLine, range, s, sel, story, it, item, txt, dflt;
         if (scope === "allDocs") {
             if (!app.documents || app.documents.length === 0) { alert("No open documents."); return []; }
             for (var d = 0; d < app.documents.length; d++) { try { if (app.documents[d].isValid) tgts.push(app.documents[d]); } catch (e) {} }
@@ -319,10 +313,10 @@
             return tgts;
         }
         if (scope === "story") {
-            var story = null;
+            story = null;
             try {
                 if (app.selection && app.selection.length > 0) {
-                    var sel = app.selection[0];
+                    sel = app.selection[0];
                     try { if (sel && sel.constructor && String(sel.constructor.name) === "Story") story = sel; } catch (ex) {}
                     if (!story) { try { if (sel && sel.parentStory && sel.parentStory.isValid) story = sel.parentStory; } catch (ex2) {} }
                 }
@@ -331,22 +325,22 @@
             tgts.push(story); return tgts;
         }
         if (scope === "page") {
-            var page = null;
+            page = null;
             try { if (app.layoutWindows && app.layoutWindows.length > 0) page = app.layoutWindows[0].activePage; else if (app.activeWindow) page = app.activeWindow.activePage; } catch (e4) {}
             if (!page) { alert("No active page. Open a layout window and try again."); return []; }
             try {
-                var frames = page.textFrames ? page.textFrames.everyItem().getElements() : [];
-                for (var i = 0; i < frames.length; i++) {
+                frames = page.textFrames ? page.textFrames.everyItem().getElements() : [];
+                for (i = 0; i < frames.length; i++) {
                     try {
-                        var tf = frames[i];
-                        var lines = null;
+                        tf = frames[i];
+                        lines = null;
                         try { lines = tf && tf.lines ? tf.lines.everyItem().getElements() : []; } catch (ee0) { lines = []; }
                         if (lines && lines.length > 0) {
-                            var firstChar = null, lastChar = null;
+                            firstChar = null; lastChar = null;
                             try { firstChar = lines[0].characters[0]; } catch (ee1) {}
-                            try { var lastLine = lines[lines.length - 1]; lastChar = lastLine.characters[-1]; } catch (ee2) {}
+                            try { lastLine = lines[lines.length - 1]; lastChar = lastLine.characters[-1]; } catch (ee2) {}
                             if (firstChar && lastChar) {
-                                var range = null;
+                                range = null;
                                 try { range = tf.parentStory.texts.itemByRange(firstChar, lastChar); } catch (ee3) {}
                                 if (range && range.isValid) tgts.push(range);
                             }
@@ -359,20 +353,20 @@
         }
         if (scope === "frame") {
             if (!app.selection || app.selection.length === 0) { alert("Select one or more frames."); return []; }
-            for (var s = 0; s < app.selection.length; s++) {
-                var it = app.selection[s];
-                var tf = null;
+            for (s = 0; s < app.selection.length; s++) {
+                it = app.selection[s];
+                tf = null;
                 try { var ctor = String(it && it.constructor && it.constructor.name); if (ctor === "TextFrame") tf = it; } catch (ef) {}
                 if (!tf) { try { if (it && it.texts && it.texts.length > 0 && it.lines) tf = it; } catch (ef2) {} }
                 if (tf) {
-                    var lines = null;
+                    lines = null;
                     try { lines = tf.lines ? tf.lines.everyItem().getElements() : []; } catch (ee0) { lines = []; }
                     if (lines && lines.length > 0) {
-                        var firstChar = null, lastChar = null;
+                        firstChar = null; lastChar = null;
                         try { firstChar = lines[0].characters[0]; } catch (ee1) {}
-                        try { var lastLine = lines[lines.length - 1]; lastChar = lastLine.characters[-1]; } catch (ee2) {}
+                        try { lastLine = lines[lines.length - 1]; lastChar = lastLine.characters[-1]; } catch (ee2) {}
                         if (firstChar && lastChar) {
-                            var range = null;
+                            range = null;
                             try { range = tf.parentStory.texts.itemByRange(firstChar, lastChar); } catch (ee3) {}
                             if (range && range.isValid) tgts.push(range);
                         }
@@ -384,9 +378,9 @@
         }
         if (scope === "selection") {
             if (!app.selection || app.selection.length === 0) { alert("Make a text selection first."); return []; }
-            for (var s = 0; s < app.selection.length; s++) {
-                var item = app.selection[s];
-                var txt = null;
+            for (var si = 0; si < app.selection.length; si++) {
+                item = app.selection[si];
+                txt = null;
                 try { if (item && item.texts && item.texts.length > 0) txt = item.texts[0]; } catch (e8) {}
                 // Do not escalate to parentStory in Selection scope; require actual text
                 if (txt && txt.isValid) tgts.push(txt);
@@ -395,7 +389,7 @@
             return tgts;
         }
         // fallback
-        try { var dflt = app.activeDocument; if (dflt && dflt.isValid) tgts.push(dflt); } catch (e10) {}
+        try { dflt = app.activeDocument; if (dflt && dflt.isValid) tgts.push(dflt); } catch (e10) {}
         return tgts;
     }
 
