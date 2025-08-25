@@ -4,6 +4,15 @@
 
 The `ExportPDF.jsx` script provides comprehensive PDF export capabilities for InDesign documents with options for page ordering, basic security, interactive vs. print export, and post-export viewing. It supports exporting in normal and/or reversed page order, with an optional removal of the first two pages for reversed exports. The script is non-destructive and restores your PDF export preferences after completion. An optional text watermark can be applied during export and is fully cleaned up afterwards.
 
+## UXP Version
+
+A UXP-based variant is provided alongside the classic ExtendScript:
+- File: UXP/ExportPDF.uxp.js
+- Core features: export Normal and/or Reversed PDFs; optional skip of first two pages for Reversed; preset selection; single undo; preferences restored.
+- Configuration: edit the CONFIG object at the top of the file (no dialog UI).
+- Limitations vs. JSX: no security options, no Interactive PDF mode, and no watermark/progress UI.
+- How to run: ensure your InDesign supports UXP scripting, open a document, optionally adjust CONFIG, then run the script from the Scripts panel.
+
 ## Usage
 
 1. Open an InDesign document

@@ -1,4 +1,4 @@
-# Bulk Variant PDF Reverse - Batch Export Script
+# Bulk PDF Reverse - Batch Export Script
 
 ## Overview
 

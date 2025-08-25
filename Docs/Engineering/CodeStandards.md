@@ -2,6 +2,8 @@
 
 **Scope:** This guide codifies team standards for writing maintainable, performant scripts for the latest InDesign releases (v19–20, “InDesign 2024/2025+”). We target **modern JavaScript via UXP-powered scripting** first, while noting behaviors that also apply to classic ExtendScript where relevant.
 
+**Current State:** This repository currently contains primarily ExtendScript (JSX) implementations with a growing UXP component. The standards below apply to both approaches, with UXP-specific patterns highlighted where they differ from ExtendScript.
+
 ---
 
 ## 1) Project Setup & Tooling

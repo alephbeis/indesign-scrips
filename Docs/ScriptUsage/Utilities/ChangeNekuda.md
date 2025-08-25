@@ -43,7 +43,6 @@ The script supports the following Nekudos (in order), only these are supported b
 
 - **Dynamic Scanning**: Automatically scans document to show only Nekudos that are actually present
 - **Flexible Selection**: Change From dropdown shows found Nekudos with occurrence counts; Change To shows all available options
--
 - **Full Unicode Support**: Works with all Hebrew vowel marks and diacritics using proper Unicode characters
 - **Scope Selection**: Choose between Document (active), Selection, Story, Page, or All Documents
 - **Proper Undo**: Each change operation is wrapped in a single undo step

@@ -2,83 +2,88 @@
 
 ## Overview
 
-The `RemoveNumericPrefixes.jsx` script provides comprehensive management of explicit numeric prefixes at the beginning of paragraphs. This specialized tool identifies and removes typed number sequences (like "1. ", "2. ", etc.) that are not part of InDesign's automatic numbering system, offering both analysis and removal capabilities with detailed page-by-page reporting and confirmation workflows.
+The `RemoveNumericPrefixes.jsx` script provides comprehensive management of explicit numeric prefixes at the beginning of paragraphs. This specialized tool identifies and removes typed number sequences (like "1. ", "2. ", etc.) that are not part of InDesign's automatic numbering system. The script features an integrated interface that combines occurrence analysis with removal capabilities, including navigation to specific instances and intelligent pre-scanning.
 
 ## Usage
 
 1. Open an InDesign document
 2. Run the `RemoveNumericPrefixes.jsx` script from the Scripts panel
-3. Choose your action in the main dialog:
-   - **Show occurrences**: List all numeric prefixes by page with counts
-   - **Remove all**: Delete all found numeric prefixes after confirmation
-4. Select the scope for processing (All Documents, Document, Story, Page, or Selection)
-5. Review results or confirm removal as appropriate
+3. The script automatically scans the document:
+   - If no numeric prefixes are found, displays a confirmation message and exits
+   - If prefixes are found, shows the main dialog with occurrences list and scope options
+4. Review the occurrences list showing all found numeric prefixes by page
+5. Use the "Go To" button to navigate to specific occurrences in the document
+6. Select the scope for processing (All Documents, Document, Story, Page, Frame, or Selected Text)
+7. Click "Remove All" to delete all found numeric prefixes after confirmation
 
 ## Features
 
-- **Dual Action Mode**: List occurrences for analysis or remove all for cleanup
-- **Page-by-Page Analysis**: Detailed breakdown showing counts per page with page labels
-- **Comprehensive Scope Control**: Process entire documents, stories, pages, or selections
-- **Interactive Workflow**: Navigate between listing and removal with confirmation dialogs
-- **Pattern Recognition**: Targets only explicit typed prefixes, not automatic numbering
-- **Detailed Reporting**: Shows formatted counts with proper number formatting and page references
+- **Intelligent Pre-Scan**: Automatically checks for occurrences before showing the dialog
+- **Combined Interface**: Single dialog showing both occurrence list and scope options
+- **Interactive Navigation**: "Go To" functionality to jump to specific occurrences in the document
+- **Page-by-Page Analysis**: Detailed breakdown showing individual occurrences with page locations and text previews
+- **Comprehensive Scope Control**: Process entire documents, stories, pages, frames, or selections
+- **Pattern Recognition**: Targets only explicit typed prefixes with required spacing
+- **Enhanced Reporting**: Shows formatted counts with proper number formatting and page references
 
-## Available Actions
+## Main Interface
 
-### Show Occurrences
-- **Purpose**: Analyze document for numeric prefix distribution without making changes
-- **Output**: Detailed listing showing:
-  - Count per page with page labels (e.g., "Page 1 (1): 3 occurrences")
-  - Total occurrences across all affected pages
-  - Summary statistics with proper formatting
-- **Navigation**: Option to return to main dialog for removal or exit
+### Occurrences List (Left Panel)
+- **Summary Statistics**: Total occurrences across affected pages
+- **Individual Occurrences**: Each numeric prefix listed with:
+  - Page location (e.g., "Page 1", "Page 2")
+  - Text preview (first 20 characters with truncation indicator)
+- **Navigation Control**: "Go To" button to navigate directly to selected occurrences
+- **Automatic Sorting**: Occurrences ordered by page sequence
 
-### Remove All
+### Scope Options (Right Panel)
+- **All Documents**: Process all currently open documents
+- **Document**: Process only the active document (default)
+- **Page**: Process only the currently active page  
+- **Story**: Process the story containing current selection (enabled when in text context)
+- **Frame**: Process selected text frames (enabled when frames are selected)
+- **Selected Text**: Process only selected text content (enabled when text is selected)
+
+### Remove All Action
 - **Purpose**: Delete all found numeric prefixes after user confirmation
 - **Process**: 
-  - Scans document for all matching patterns
-  - Shows total count before removal
-  - Confirms deletion with user
-  - Reports actual removals completed
-- **Safety**: Includes confirmation dialog with detailed removal statistics
+  - Uses the selected scope to determine which occurrences to remove
+  - Shows total count before removal in confirmation dialog
+  - Performs removal within a single undo operation
+  - Reports actual number of removals completed
+- **Safety**: Includes confirmation dialog and single undo step for easy reversal
 
 ## Pattern Recognition
 
 ### Target Pattern
-- **GREP Pattern**: `^\d+\.\s*`
-- **Matches**: Numeric digits followed by period and optional space at paragraph start
+- **GREP Pattern**: `^\d+\.\s+`
+- **Matches**: Numeric digits followed by period and required space at paragraph start
 - **Examples**:
   - "1. Text content"
   - "23. Another item"
-  - "456.Text without space"
+  - "456. Text with space"
 
 ### Exclusions
+- **Numbers Without Space**: "456.Text" (no space after period) is not matched
 - **Automatic Numbering**: InDesign's built-in paragraph numbering is not affected
 - **Mid-Paragraph Numbers**: Only targets prefixes at the very beginning of paragraphs
 - **Non-Numeric Prefixes**: Letters or symbols are not matched
+- **Decimal Numbers**: Numbers like "1.5" without trailing space are not matched
 
-## User Interface
+## Navigation Features
 
-### Main Dialog
-- **Action Selection**: Radio buttons for "Show occurrences" or "Remove all"
-- **Scope Panel**: Choose processing scope with clear labels
-- **Integrated Design**: Combined options and scope selection in single dialog
+### Go To Functionality
+- **Direct Navigation**: Click "Go To" button to navigate to selected occurrence
+- **Page Switching**: Automatically switches to the page containing the selected occurrence
+- **Text Selection**: Highlights the selected numeric prefix in the document
+- **Fallback Behavior**: If no item is selected, navigates to the first occurrence
+- **Dialog Management**: Automatically closes the dialog after navigation to show the result
 
-### Scope Options
-- **All Documents**: Process all currently open documents
-- **Document (active)**: Process only the active document (default)
-- **Story (from selection)**: Process the story containing current selection
-- **Page (active)**: Process only the currently active page
-- **Selection**: Process only selected content
-
-### Results Display
-- **Occurrences Dialog**: 
-  - Formatted summary with total counts
-  - Page-by-page breakdown with proper page labels
-  - Navigation options (Back to Options, Exit)
-- **Confirmation Dialog**:
-  - Clear removal confirmation with counts
-  - Final approval before making changes
+### Smart Selection
+- **Always Available**: "Go To" button is always enabled for user convenience
+- **Multi-Selection Handling**: Works with the first selected item when multiple items are selected
+- **Validation**: Checks that the target occurrence is still valid before navigation
+- **Error Handling**: Provides clear feedback if navigation fails or target is no longer valid
 
 ## Technical Details
 
@@ -100,12 +105,14 @@ The `RemoveNumericPrefixes.jsx` script provides comprehensive management of expl
 ## Error Handling
 
 The script provides robust error handling for:
-- Missing or closed documents
-- Invalid scope selections
-- Empty search results
-- GREP processing failures
-- Page information access issues
-- User cancellation at any stage
+- **Missing or closed documents**: Shows clear message and exits gracefully
+- **No occurrences found**: Displays confirmation message and exits without showing dialog
+- **Invalid scope selections**: Validates selection context and disables inapplicable options
+- **Empty search results**: Handles cases where no matching patterns are found
+- **GREP processing failures**: Continues processing other targets if individual scopes fail
+- **Navigation failures**: Validates target text objects before attempting navigation
+- **Page information access issues**: Gracefully handles missing page context
+- **User cancellation**: Supports cancellation at dialog level with proper cleanup
 
 ## Prerequisites
 
