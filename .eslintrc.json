@@ -1,0 +1,54 @@
+{
+  "root": true,
+  "env": {
+    "es6": false
+  },
+  "parserOptions": {
+    "ecmaVersion": 5,
+    "sourceType": "script"
+  },
+  "globals": {
+    "app": "readonly",
+    "$": "readonly",
+    "Window": "readonly",
+    "File": "readonly",
+    "Folder": "readonly",
+    "RulerOrigin": "readonly",
+    "PageSideOptions": "readonly",
+    "UndoModes": "readonly",
+    "ScriptLanguage": "readonly",
+    "ScriptUI": "readonly",
+    "LocationOptions": "readonly",
+    "NothingEnum": "readonly",
+    "ExportFormat": "readonly",
+    "AutoSizingTypeEnum": "readonly",
+    "FirstBaseline": "readonly",
+    "Justification": "readonly",
+    "AutoKernType": "readonly",
+    "VerticalJustification": "readonly",
+    "MeasurementUnits": "readonly",
+    "SaveOptions": "readonly",
+    "SpecialCharacters": "readonly",
+    "OverrideType": "readonly",
+    "alert": "writable"
+  },
+  "rules": {
+    "no-undef": "error",
+    "no-redeclare": "warn",
+    "no-unreachable": "error",
+    "no-unused-vars": ["warn", { "vars": "all", "args": "none", "varsIgnorePattern": "^_" }],
+    "valid-typeof": "error",
+    "eqeqeq": ["warn", "allow-null"],
+    "no-extra-semi": "warn",
+    "no-trailing-spaces": "warn",
+    "consistent-return": "off"
+  },
+  "overrides": [
+    {
+      "files": ["Scripts/Export/BulkPDFGenerator.jsx"],
+      "rules": {
+        "no-undef": "off"
+      }
+    }
+  ]
+}
