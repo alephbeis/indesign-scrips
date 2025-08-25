@@ -1,5 +1,5 @@
 /*
-ExportPDFWithOrder.jsx
+ExportPDF.jsx
 
 Purpose:
 - Export the active InDesign document to PDF in normal and/or reversed page order.
@@ -28,38 +28,44 @@ Usage:
 */
 
 (function () {
-    function showDialog(message, title) {
+    // Load shared utilities (Shared/InDesignUtils.jsx)
+    try {
+        var __scriptFile = File($.fileName);
+        // This script is in Scripts/Export, utilities are in Scripts/Shared
+        var __utilsFile = File(__scriptFile.parent.parent + "/Shared/InDesignUtils.jsx");
+        if (__utilsFile.exists) {
+            $.evalFile(__utilsFile);
+        } else {
+            alert("Required utilities not found: " + __utilsFile.fsName);
+            return;
+        }
+        if (typeof InDesignUtils === "undefined") {
+            alert("Failed to load required utilities.");
+            return;
+        }
+    } catch (_loadErr) {
         try {
-            var win = new Window('dialog', title || 'Message');
-            win.orientation = 'column';
-            win.margins = 16;
-            win.spacing = 12;
-            var txt = win.add('statictext', undefined, String(message));
-            txt.characters = 60;
-            var row = win.add('group');
-            row.alignment = 'right';
-            var ok = row.add('button', undefined, 'OK', { name: 'ok' });
-            win.defaultElement = ok;
-            win.cancelElement = ok;
-            win.show();
-        } catch (e) {
-            try { $.writeln(String(message)); } catch(_) {}
-        }
+            alert("Failed to load utilities: " + _loadErr);
+        } catch (_) {}
+        return;
     }
-    // Local notifier to avoid reassigning the built-in alert (read-only in ExtendScript)
-    function notify(msg) {
-        try { showDialog(msg, 'Message'); }
-        catch (e) {
-            try { if (typeof alert === 'function') alert(msg); } catch(_) {}
-            try { $.writeln(String(msg)); } catch(__) {}
-        }
+    function showDialog(message, title) {
+        return InDesignUtils.UI.showMessage(title || "Message", String(message));
+    }
+    // Local notifier delegating to shared utilities
+    function notify(msg, title) {
+        return InDesignUtils.UI.alert(String(msg), title || "Message");
     }
     if (!app || !app.documents || app.documents.length === 0) {
-        showDialog("Open a document before running ExportPDFWithOrder.", "Export PDF");
+        showDialog("Open a document before running ExportPDF.", "Export PDF");
         return;
     }
 
-    var doc = app.activeDocument;
+    var doc = InDesignUtils.Objects.getActiveDocument();
+    if (!doc) {
+        showDialog("Open a document before running ExportPDF.", "Export PDF");
+        return;
+    }
 
     // Helper function to get the default base name for export files
     function getBaseName(f) {
@@ -92,12 +98,17 @@ Usage:
     // Build user interface
     var w = new Window("dialog", "Export PDF (Normal/Reversed)");
     w.orientation = "column";
-    w.alignChildren = ["fill", "top"]; w.margins = 16; w.spacing = 12;
+    w.alignChildren = ["fill", "top"];
+    w.margins = 16;
+    w.spacing = 12;
 
     w.add("statictext", undefined, "Choose what to export and how:");
 
     var optionsPanel = w.add("panel", undefined, "Export Options");
-    optionsPanel.orientation = "column"; optionsPanel.alignChildren = ["left", "top"]; optionsPanel.margins = 12; optionsPanel.spacing = 6;
+    optionsPanel.orientation = "column";
+    optionsPanel.alignChildren = ["left", "top"];
+    optionsPanel.margins = 12;
+    optionsPanel.spacing = 6;
     var cbNormal = optionsPanel.add("checkbox", undefined, "Export Normal order");
     cbNormal.value = true;
     var cbReversed = optionsPanel.add("checkbox", undefined, "Export Reversed order");
@@ -106,26 +117,39 @@ Usage:
     cbRemoveTwo.value = false; // initially unchecked
     // This option applies only to reversed export; disable when not reversed
     cbRemoveTwo.enabled = cbReversed.value;
-    cbReversed.onClick = function(){
+    cbReversed.onClick = function () {
         cbRemoveTwo.enabled = cbReversed.value;
         cbRemoveTwo.value = cbReversed.value; // mirror reversed selection
     };
 
-    var presetGroup = w.add("group"); presetGroup.orientation = "row"; presetGroup.alignChildren = ["left", "center"]; presetGroup.spacing = 8;
+    var presetGroup = w.add("group");
+    presetGroup.orientation = "row";
+    presetGroup.alignChildren = ["left", "center"];
+    presetGroup.spacing = 8;
     presetGroup.add("statictext", undefined, "PDF Preset:");
     var presetDropdown = presetGroup.add("dropdownlist", undefined, presetNames);
     // Default to [Press Quality] if available, otherwise use first preset
     var defaultPresetIndex = 0;
     for (var pi = 0; pi < presetNames.length; pi++) {
-        if (presetNames[pi] === "[Press Quality]") { defaultPresetIndex = pi; break; }
+        if (presetNames[pi] === "[Press Quality]") {
+            defaultPresetIndex = pi;
+            break;
+        }
     }
     presetDropdown.selection = presetDropdown.items[defaultPresetIndex];
 
     // PDF Settings panel for additional options
     var settingsPanel = w.add("panel", undefined, "PDF Settings");
-    settingsPanel.orientation = "column"; settingsPanel.alignChildren = ["left", "top"]; settingsPanel.margins = 12; settingsPanel.spacing = 8;
+    settingsPanel.orientation = "column";
+    settingsPanel.alignChildren = ["left", "top"];
+    settingsPanel.margins = 12;
+    settingsPanel.spacing = 8;
 
-    var cbUseSecurity = settingsPanel.add("checkbox", undefined, "Enable PDF security (restrict printing, copying, and changes)");
+    var cbUseSecurity = settingsPanel.add(
+        "checkbox",
+        undefined,
+        "Enable PDF security (restrict printing, copying, and changes)"
+    );
     cbUseSecurity.value = false;
 
     var cbInteractivePDF = settingsPanel.add("checkbox", undefined, "Interactive PDF (working hyperlinks and buttons)");
@@ -135,7 +159,10 @@ Usage:
 
     // Watermark section
     var sep = settingsPanel.add("group", undefined, "");
-    sep.margins = 0; sep.spacing = 0; sep.alignment = ["fill","top"]; sep.alignChildren = ["fill","fill"]; // thin separator without extra spacing
+    sep.margins = 0;
+    sep.spacing = 0;
+    sep.alignment = ["fill", "top"];
+    sep.alignChildren = ["fill", "fill"]; // thin separator without extra spacing
     var sepLine = sep.add("panel", undefined, "");
     sepLine.margins = 0;
     sepLine.preferredSize.height = 1; // 1px line
@@ -143,10 +170,16 @@ Usage:
     var cbWatermark = settingsPanel.add("checkbox", undefined, "Add text watermark (preconfigured styling)");
     cbWatermark.value = false;
 
-    var watermarkGroup = settingsPanel.add("group"); watermarkGroup.orientation = "column"; watermarkGroup.alignChildren = ["fill", "top"];
-    watermarkGroup.spacing = 4; watermarkGroup.margins = [20, 0, 0, 0]; // indent
+    var watermarkGroup = settingsPanel.add("group");
+    watermarkGroup.orientation = "column";
+    watermarkGroup.alignChildren = ["fill", "top"];
+    watermarkGroup.spacing = 4;
+    watermarkGroup.margins = [20, 0, 0, 0]; // indent
 
-    var watermarkTextGroup = watermarkGroup.add("group"); watermarkTextGroup.orientation = "row"; watermarkTextGroup.alignChildren = ["left", "center"]; watermarkTextGroup.spacing = 8;
+    var watermarkTextGroup = watermarkGroup.add("group");
+    watermarkTextGroup.orientation = "row";
+    watermarkTextGroup.alignChildren = ["left", "center"];
+    watermarkTextGroup.spacing = 8;
     watermarkTextGroup.add("statictext", undefined, "Text:");
     var watermarkTextEdit = watermarkTextGroup.add("edittext", undefined, "Sample");
     watermarkTextEdit.characters = 20;
@@ -182,14 +215,27 @@ Usage:
     cbViewPDF.value = false;
 
     var folderPanel = w.add("panel", undefined, "Output");
-    folderPanel.orientation = "column"; folderPanel.alignChildren = ["fill", "top"]; folderPanel.margins = 12; folderPanel.spacing = 8;
-    var baseNameGroup = folderPanel.add("group"); baseNameGroup.orientation = "row"; baseNameGroup.alignChildren = ["left", "center"]; baseNameGroup.spacing = 8;
+    folderPanel.orientation = "column";
+    folderPanel.alignChildren = ["fill", "top"];
+    folderPanel.margins = 12;
+    folderPanel.spacing = 8;
+    var baseNameGroup = folderPanel.add("group");
+    baseNameGroup.orientation = "row";
+    baseNameGroup.alignChildren = ["left", "center"];
+    baseNameGroup.spacing = 8;
     baseNameGroup.add("statictext", undefined, "Base filename:");
-    var baseNameEdit = baseNameGroup.add("edittext", undefined, getBaseName(doc.saved ? doc.fullName : { name: doc.name }));
+    var baseNameEdit = baseNameGroup.add(
+        "edittext",
+        undefined,
+        getBaseName(doc.saved ? doc.fullName : { name: doc.name })
+    );
     baseNameEdit.characters = 30;
 
-    var pathGroup = folderPanel.add("group"); pathGroup.orientation = "row"; pathGroup.alignChildren = ["fill", "center"]; pathGroup.spacing = 8;
-    var pathEdit = pathGroup.add("edittext", undefined, (doc.saved ? doc.fullName.parent.fsName : Folder.desktop.fsName));
+    var pathGroup = folderPanel.add("group");
+    pathGroup.orientation = "row";
+    pathGroup.alignChildren = ["fill", "center"];
+    pathGroup.spacing = 8;
+    var pathEdit = pathGroup.add("edittext", undefined, doc.saved ? doc.fullName.parent.fsName : Folder.desktop.fsName);
     pathEdit.characters = 40;
     var browseBtn = pathGroup.add("button", undefined, "Choose Folder...");
     browseBtn.onClick = function () {
@@ -201,14 +247,21 @@ Usage:
     var pdfSubfolderCheckbox = folderPanel.add("checkbox", undefined, "Export to PDF folder");
     pdfSubfolderCheckbox.value = false;
 
-    var btns = w.add("group"); btns.alignment = "right";
+    var btns = w.add("group");
+    btns.alignment = "right";
     var cancelBtn = btns.add("button", undefined, "Cancel");
-    var okBtn = btns.add("button", undefined, "Export", {name: "ok"});
+    var okBtn = btns.add("button", undefined, "Export", { name: "ok" });
 
-    okBtn.onClick = function () { w.close(1); };
-    cancelBtn.onClick = function () { w.close(0); };
+    okBtn.onClick = function () {
+        w.close(1);
+    };
+    cancelBtn.onClick = function () {
+        w.close(0);
+    };
 
-    if (w.show() !== 1) { return; }
+    if (w.show() !== 1) {
+        return;
+    }
 
     // Validations
     if (!cbNormal.value && !cbReversed.value) {
@@ -219,7 +272,7 @@ Usage:
     // Conditional even-page requirement: only when exporting Reversed
     try {
         var totalPages = doc.pages.length;
-        if (cbReversed.value && (totalPages % 2 === 1)) {
+        if (cbReversed.value && totalPages % 2 === 1) {
             notify("This document ends on an odd page. Please fix the pagination or deselect 'Export Reversed'.");
             return;
         }
@@ -238,7 +291,7 @@ Usage:
         }
     }
 
-    var baseName = baseNameEdit.text.replace(/[/:*?"<>|]/g, "_");
+    var baseName = baseNameEdit.text.replace(new RegExp('[\\/:*?"<>|]', "g"), "_");
     if (!baseName || baseName.replace(/\s+/g, "").length === 0) {
         notify("Please provide a valid base filename.");
         return;
@@ -256,13 +309,16 @@ Usage:
                 if (tf && tf.isValid) {
                     try {
                         if (tf.overflows === true) {
-                            var pg = null; try { pg = tf.parentPage ? tf.parentPage.name : null; } catch(_) {}
-                            hits.push(pg ? ("Page " + pg) : "Pasteboard/No page");
+                            var pg = null;
+                            try {
+                                pg = tf.parentPage ? tf.parentPage.name : null;
+                            } catch (_) {}
+                            hits.push(pg ? "Page " + pg : "Pasteboard/No page");
                         }
-                    } catch(_eOf) {}
+                    } catch (_eOf) {}
                 }
             }
-        } catch(_eAll) {}
+        } catch (_eAll) {}
         return hits;
     }
     var __overs = _findOversetFrames(doc);
@@ -271,26 +327,16 @@ Usage:
         return;
     }
 
-    // Create progress palette for user feedback during export
-    var _prog = (function(){
-        try {
-            var p = new Window("palette", "Exporting PDFs");
-            p.orientation = "column"; p.alignChildren = ["fill", "top"]; p.margins = 16; p.spacing = 12;
-            // Ensure sufficient width to avoid truncation; height grows only with content
-            try { p.preferredSize.width = 520; } catch(_sz0) {}
-            var lbl = p.add("statictext", undefined, "Starting…");
-            lbl.characters = 48;
-            var bar = p.add("progressbar", undefined, 0, 100);
-            bar.value = 0;
-            p.show();
-            return {
-                set: function(txt, percent){ try { if (txt) lbl.text = txt; if (percent != null) bar.value = percent; p.update(); } catch (_e) {} },
-                close: function(){ try { p.close(); } catch(_e2) {} }
-            };
-        } catch(_e0) {
-            return { set: function(){}, close: function(){} };
+    // Create progress UI using shared utility only
+    var __pw = InDesignUtils.UI.createProgressWindow("Exporting PDFs", { width: 520, initialText: "Starting…" });
+    var _prog = {
+        set: function (txt, percent) {
+            __pw.update(typeof percent === "number" ? percent : undefined, txt || undefined);
+        },
+        close: function () {
+            __pw.close();
         }
-    })();
+    };
 
     // Export function that uses page range specification (completely non-destructive)
     function exportVariant(isReversed, removeFirstTwo, outFile) {
@@ -310,33 +356,69 @@ Usage:
             if (useInteractive) {
                 // Store and apply interactive PDF preferences
                 var intPrefs = app.interactivePDFExportPreferences;
-                try { origPageRange = intPrefs.pageRange; } catch(_e0) {}
-                try { origReaderSpreads = intPrefs.exportReaderSpreads; } catch(_e1) {}
-                try { origViewPDF = intPrefs.viewPDF; } catch(_e2) {}
+                try {
+                    origPageRange = intPrefs.pageRange;
+                } catch (_e0) {}
+                try {
+                    origReaderSpreads = intPrefs.exportReaderSpreads;
+                } catch (_e1) {}
+                try {
+                    origViewPDF = intPrefs.viewPDF;
+                } catch (_e2) {}
 
                 // Apply interactive PDF settings
-                try { intPrefs.exportReaderSpreads = false; } catch(_eRS) {}
-                try { intPrefs.viewPDF = cbViewPDF.value; } catch(_eVP) {}
+                try {
+                    intPrefs.exportReaderSpreads = false;
+                } catch (_eRS) {}
+                try {
+                    intPrefs.viewPDF = cbViewPDF.value;
+                } catch (_eVP) {}
             } else {
                 // Store and apply regular PDF preferences
                 var pdfPrefs = app.pdfExportPreferences;
-                try { origPageRange = pdfPrefs.pageRange; } catch(_e0) {}
-                try { origReaderSpreads = pdfPrefs.exportReaderSpreads; } catch(_e1) {}
-                try { origUseSecurity = pdfPrefs.useSecurity; } catch(_e2) {}
-                try { origDisallowPrinting = pdfPrefs.disallowPrinting; } catch(_e3) {}
-                try { origDisallowCopying = pdfPrefs.disallowCopying; } catch(_e4) {}
-                try { origDisallowChanging = pdfPrefs.disallowChanging; } catch(_e5) {}
-                try { origViewPDF = pdfPrefs.viewPDF; } catch(_e6) {}
+                try {
+                    origPageRange = pdfPrefs.pageRange;
+                } catch (_e0) {}
+                try {
+                    origReaderSpreads = pdfPrefs.exportReaderSpreads;
+                } catch (_e1) {}
+                try {
+                    origUseSecurity = pdfPrefs.useSecurity;
+                } catch (_e2) {}
+                try {
+                    origDisallowPrinting = pdfPrefs.disallowPrinting;
+                } catch (_e3) {}
+                try {
+                    origDisallowCopying = pdfPrefs.disallowCopying;
+                } catch (_e4) {}
+                try {
+                    origDisallowChanging = pdfPrefs.disallowChanging;
+                } catch (_e5) {}
+                try {
+                    origViewPDF = pdfPrefs.viewPDF;
+                } catch (_e6) {}
 
                 // Apply regular PDF settings
-                try { pdfPrefs.exportReaderSpreads = false; } catch(_eRS) {}
-                try { pdfPrefs.useSecurity = cbUseSecurity.value; } catch(_eUS) {}
+                try {
+                    pdfPrefs.exportReaderSpreads = false;
+                } catch (_eRS) {}
+                try {
+                    pdfPrefs.useSecurity = cbUseSecurity.value;
+                } catch (_eUS) {}
                 if (cbUseSecurity.value) {
-                    try { pdfPrefs.disallowPrinting = true; } catch(_eDP) {}
-                    try { pdfPrefs.disallowCopying = true; } catch(_eDC) {}
-                    try { pdfPrefs.disallowChanging = true; } catch(_eDCh) {}
+                    try {
+                        pdfPrefs.disallowPrinting = true;
+                    } catch (_eDP) {}
+                    try {
+                        pdfPrefs.disallowCopying = true;
+                    } catch (_eDC) {}
+                    try {
+                        pdfPrefs.disallowChanging = true;
+                    } catch (_eDCh) {}
                 }
-                try { pdfPrefs.viewPDF = cbViewPDF.value; } catch(_eVP) {}
+                try {
+                    pdfPrefs.viewPDF = cbViewPDF.value;
+                } catch (_eVP) {}
             }
 
             // Build page range string based on export requirements
@@ -369,18 +451,17 @@ Usage:
 
             // Set page range and export based on PDF type
             if (useInteractive) {
-                _prog.set("Exporting Interactive PDF…", 60);
+                _prog.set("Exporting: " + outFile.name, 60);
                 app.interactivePDFExportPreferences.pageRange = pageRange;
                 doc.exportFile(ExportFormat.INTERACTIVE_PDF, outFile, false);
             } else {
-                _prog.set("Exporting PDF…", 60);
+                _prog.set("Exporting: " + outFile.name, 60);
                 app.pdfExportPreferences.pageRange = pageRange;
                 doc.exportFile(ExportFormat.PDF_TYPE, outFile, false, preset);
             }
 
             _prog.set("Exported: " + outFile.fsName, 100);
             return true;
-
         } catch (e) {
             notify("Export failed: " + e);
             return false;
@@ -388,18 +469,39 @@ Usage:
             // Restore original preferences based on export type
             if (useInteractive) {
                 // Restore interactive PDF preferences
-                try { if (origPageRange !== null) app.interactivePDFExportPreferences.pageRange = origPageRange; } catch (_r0) {}
-                try { if (origReaderSpreads !== null) app.interactivePDFExportPreferences.exportReaderSpreads = origReaderSpreads; } catch (_r1) {}
-                try { if (origViewPDF !== null) app.interactivePDFExportPreferences.viewPDF = origViewPDF; } catch (_r2) {}
+                try {
+                    if (origPageRange !== null) app.interactivePDFExportPreferences.pageRange = origPageRange;
+                } catch (_r0) {}
+                try {
+                    if (origReaderSpreads !== null)
+                        app.interactivePDFExportPreferences.exportReaderSpreads = origReaderSpreads;
+                } catch (_r1) {}
+                try {
+                    if (origViewPDF !== null) app.interactivePDFExportPreferences.viewPDF = origViewPDF;
+                } catch (_r2) {}
             } else {
                 // Restore regular PDF preferences
-                try { if (origPageRange !== null) app.pdfExportPreferences.pageRange = origPageRange; } catch (_r0) {}
-                try { if (origReaderSpreads !== null) app.pdfExportPreferences.exportReaderSpreads = origReaderSpreads; } catch (_r1) {}
-                try { if (origUseSecurity !== null) app.pdfExportPreferences.useSecurity = origUseSecurity; } catch (_r2) {}
-                try { if (origDisallowPrinting !== null) app.pdfExportPreferences.disallowPrinting = origDisallowPrinting; } catch (_r3) {}
-                try { if (origDisallowCopying !== null) app.pdfExportPreferences.disallowCopying = origDisallowCopying; } catch (_r4) {}
-                try { if (origDisallowChanging !== null) app.pdfExportPreferences.disallowChanging = origDisallowChanging; } catch (_r5) {}
-                try { if (origViewPDF !== null) app.pdfExportPreferences.viewPDF = origViewPDF; } catch (_r6) {}
+                try {
+                    if (origPageRange !== null) app.pdfExportPreferences.pageRange = origPageRange;
+                } catch (_r0) {}
+                try {
+                    if (origReaderSpreads !== null) app.pdfExportPreferences.exportReaderSpreads = origReaderSpreads;
+                } catch (_r1) {}
+                try {
+                    if (origUseSecurity !== null) app.pdfExportPreferences.useSecurity = origUseSecurity;
+                } catch (_r2) {}
+                try {
+                    if (origDisallowPrinting !== null) app.pdfExportPreferences.disallowPrinting = origDisallowPrinting;
+                } catch (_r3) {}
+                try {
+                    if (origDisallowCopying !== null) app.pdfExportPreferences.disallowCopying = origDisallowCopying;
+                } catch (_r4) {}
+                try {
+                    if (origDisallowChanging !== null) app.pdfExportPreferences.disallowChanging = origDisallowChanging;
+                } catch (_r5) {}
+                try {
+                    if (origViewPDF !== null) app.pdfExportPreferences.viewPDF = origViewPDF;
+                } catch (_r6) {}
             }
         }
     }
@@ -410,9 +512,9 @@ Usage:
     }
 
     // --- Watermark defaults to match Acrobat sequence (literal text, no numbers) ---
-    var WM_DEFAULT_ANGLE = 45;       // degrees
-    var WM_DEFAULT_OPACITY = 65;     // percent
-    var WM_DEFAULT_COVERAGE = 0.80;  // fraction of page diagonal
+    var WM_DEFAULT_ANGLE = 45; // degrees
+    var WM_DEFAULT_OPACITY = 65; // percent
+    var WM_DEFAULT_COVERAGE = 0.8; // fraction of page diagonal
 
     // Create a temporary object style with clean properties for watermarks
     function createWatermarkObjectStyle(doc) {
@@ -429,18 +531,38 @@ Usage:
             objStyle.name = styleName;
 
             // Ensure this style is not based on anything to avoid accidental inheritance
-            try { objStyle.basedOn = doc.objectStyles.itemByName("[None]"); } catch (_b0) {}
+            try {
+                objStyle.basedOn = doc.objectStyles.itemByName("[None]");
+            } catch (_b0) {}
 
             // Set clean properties - no stroke, no fill, no auto-sizing
-            try { objStyle.enableStroke = false; } catch (_s1) {}
-            try { objStyle.enableFill = false; } catch (_s2) {}
-            try { objStyle.strokeWeight = 0; } catch (_s2w) {}
-            try { objStyle.fillColor = doc.swatches.itemByName("[None]"); } catch (_fc) {}
-            try { objStyle.strokeColor = doc.swatches.itemByName("[None]"); } catch (_sc) {}
-            try { objStyle.textFramePreferences.autoSizingType = AutoSizingTypeEnum.OFF; } catch (_s3) {}
-            try { objStyle.textFramePreferences.useNoLineBreaksForAutoSizing = false; } catch (_s4) {}
-            try { objStyle.textFramePreferences.insetSpacing = [0,0,0,0]; } catch (_sInset) {}
-            try { objStyle.textFramePreferences.firstBaselineOffset = FirstBaseline.CAP_HEIGHT; } catch (_fb) {}
+            try {
+                objStyle.enableStroke = false;
+            } catch (_s1) {}
+            try {
+                objStyle.enableFill = false;
+            } catch (_s2) {}
+            try {
+                objStyle.strokeWeight = 0;
+            } catch (_s2w) {}
+            try {
+                objStyle.fillColor = doc.swatches.itemByName("[None]");
+            } catch (_fc) {}
+            try {
+                objStyle.strokeColor = doc.swatches.itemByName("[None]");
+            } catch (_sc) {}
+            try {
+                objStyle.textFramePreferences.autoSizingType = AutoSizingTypeEnum.OFF;
+            } catch (_s3) {}
+            try {
+                objStyle.textFramePreferences.useNoLineBreaksForAutoSizing = false;
+            } catch (_s4) {}
+            try {
+                objStyle.textFramePreferences.insetSpacing = [0, 0, 0, 0];
+            } catch (_sInset) {}
+            try {
+                objStyle.textFramePreferences.firstBaselineOffset = FirstBaseline.CAP_HEIGHT;
+            } catch (_fb) {}
         }
 
         return objStyle;
@@ -469,11 +591,21 @@ Usage:
             paraStyle.basedOn = baseStyle;
 
             // Set clean text properties
-            try { paraStyle.justification = Justification.CENTER_ALIGN; } catch (_p1) {}
-            try { paraStyle.numberedListStyle = app.numberedListStyles.itemByName("[None]"); } catch (_p2) {}
-            try { paraStyle.bulletedListStyle = app.bulletedListStyles.itemByName("[None]"); } catch (_p3) {}
-            try { paraStyle.numberingContinue = false; } catch (_p4) {}
-            try { paraStyle.numberingStartAt = 1; } catch (_p5) {}
+            try {
+                paraStyle.justification = Justification.CENTER_ALIGN;
+            } catch (_p1) {}
+            try {
+                paraStyle.numberedListStyle = app.numberedListStyles.itemByName("[None]");
+            } catch (_p2) {}
+            try {
+                paraStyle.bulletedListStyle = app.bulletedListStyles.itemByName("[None]");
+            } catch (_p3) {}
+            try {
+                paraStyle.numberingContinue = false;
+            } catch (_p4) {}
+            try {
+                paraStyle.numberingStartAt = 1;
+            } catch (_p5) {}
 
             // Set font to specified sans serif bold with robust fallbacks
             try {
@@ -494,20 +626,49 @@ Usage:
             }
 
             // Normalize key text attributes to avoid inheriting from document styles
-            try { paraStyle.hyphenation = false; } catch (_hy) {}
-            try { paraStyle.tracking = 0; } catch (_tr) {}
-            try { paraStyle.horizontalScale = 100; } catch (_hs) {}
-            try { paraStyle.verticalScale = 100; } catch (_vs) {}
-            try { paraStyle.ligatures = false; } catch (_lg) {}
-            try { paraStyle.kerningMethod = AutoKernType.METRICS; } catch (_km) {}
-            try { paraStyle.fillColor = doc.swatches.itemByName("[Black]"); } catch (_fc2) {}
-            try { paraStyle.strokeColor = doc.swatches.itemByName("[None]"); } catch (_sc2) {}
-            try { paraStyle.spaceBefore = 0; } catch (_sb) {}
-            try { paraStyle.spaceAfter = 0; } catch (_sa) {}
-            try { paraStyle.alignToBaseline = false; } catch (_ab) {}
-            try { paraStyle.composer = "Adobe Paragraph Composer"; } catch (_cp) {}
-            try { paraStyle.appliedLanguage = app.languagesWithVendors.itemByName("[No Language]"); } catch (_lang1) {}
-            try { if (!paraStyle.appliedLanguage || !paraStyle.appliedLanguage.isValid) paraStyle.appliedLanguage = app.languagesWithVendors.itemByName("English: USA"); } catch (_lang2) {}
+            try {
+                paraStyle.hyphenation = false;
+            } catch (_hy) {}
+            try {
+                paraStyle.tracking = 0;
+            } catch (_tr) {}
+            try {
+                paraStyle.horizontalScale = 100;
+            } catch (_hs) {}
+            try {
+                paraStyle.verticalScale = 100;
+            } catch (_vs) {}
+            try {
+                paraStyle.ligatures = false;
+            } catch (_lg) {}
+            try {
+                paraStyle.kerningMethod = AutoKernType.METRICS;
+            } catch (_km) {}
+            try {
+                paraStyle.fillColor = doc.swatches.itemByName("[Black]");
+            } catch (_fc2) {}
+            try {
+                paraStyle.strokeColor = doc.swatches.itemByName("[None]");
+            } catch (_sc2) {}
+            try {
+                paraStyle.spaceBefore = 0;
+            } catch (_sb) {}
+            try {
+                paraStyle.spaceAfter = 0;
+            } catch (_sa) {}
+            try {
+                paraStyle.alignToBaseline = false;
+            } catch (_ab) {}
+            try {
+                paraStyle.composer = "Adobe Paragraph Composer";
+            } catch (_cp) {}
+            try {
+                paraStyle.appliedLanguage = app.languagesWithVendors.itemByName("[No Language]");
+            } catch (_lang1) {}
+            try {
+                if (!paraStyle.appliedLanguage || !paraStyle.appliedLanguage.isValid)
+                    paraStyle.appliedLanguage = app.languagesWithVendors.itemByName("English: USA");
+            } catch (_lang2) {}
 
             // Calculate and set point size based on page dimensions and text length
             try {
@@ -515,7 +676,9 @@ Usage:
                 var targetLen = diag * WM_DEFAULT_COVERAGE;
                 paraStyle.pointSize = Math.max(24, (targetLen / Math.max(1, textLength)) * 1.35);
             } catch (_pSize) {
-                try { paraStyle.pointSize = 72; } catch (_pSizeFallback) {}
+                try {
+                    paraStyle.pointSize = 72;
+                } catch (_pSizeFallback) {}
             }
         }
 
@@ -539,7 +702,8 @@ Usage:
         if (!text || text === "") return null;
 
         // Calculate average page dimensions for paragraph style sizing
-        var avgWidth = 0, avgHeight = 0;
+        var avgWidth = 0,
+            avgHeight = 0;
         var pages = doc.pages;
         for (var avgI = 0; avgI < pages.length; avgI++) {
             var pb = pages[avgI].bounds;
@@ -560,54 +724,85 @@ Usage:
         try {
             lyr = doc.layers.itemByName("__TEMP_WATERMARK__");
             if (!lyr.isValid) lyr = doc.layers.add({ name: "__TEMP_WATERMARK__" });
-        } catch (_e0) { lyr = doc.layers.add({ name: "__TEMP_WATERMARK__" }); }
-        lyr.locked = false; lyr.visible = true;
+        } catch (_e0) {
+            lyr = doc.layers.add({ name: "__TEMP_WATERMARK__" });
+        }
+        lyr.locked = false;
+        lyr.visible = true;
 
         // Move layer to the top of the stack to ensure watermark appears above all content
-        try { lyr.move(LocationOptions.AT_BEGINNING); } catch (_eMove) {}
+        try {
+            lyr.move(LocationOptions.AT_BEGINNING);
+        } catch (_eMove) {}
 
         var i;
         for (i = 0; i < pages.length; i++) {
-            var p = pages[i]; pb = p.bounds; // [y1, x1, y2, x2]
-            var w = pb[3] - pb[1], h = pb[2] - pb[0];
+            var p = pages[i];
+            pb = p.bounds; // [y1, x1, y2, x2]
+            var w = pb[3] - pb[1],
+                h = pb[2] - pb[0];
 
             var tf = p.textFrames.add(lyr);
             // Center a generous square frame; then rotate/center content.
-            var cx = pb[1] + w/2, cy = pb[0] + h/2, half = Math.max(w, h);
-            tf.geometricBounds = [cy - half/2, cx - half/2, cy + half/2, cx + half/2];
+            var cx = pb[1] + w / 2,
+                cy = pb[0] + h / 2,
+                half = Math.max(w, h);
+            tf.geometricBounds = [cy - half / 2, cx - half / 2, cy + half / 2, cx + half / 2];
 
             // Apply clean temporary object style
-            try { tf.appliedObjectStyle = tempObjStyle; } catch (_eObj) {}
+            try {
+                tf.appliedObjectStyle = tempObjStyle;
+            } catch (_eObj) {}
             // Normalize frame defaults to avoid new-document variations
-            try { tf.textFramePreferences.insetSpacing = [0,0,0,0]; } catch (_finset) {}
-            try { tf.textFramePreferences.firstBaselineOffset = FirstBaseline.CAP_HEIGHT; } catch (_ffb) {}
+            try {
+                tf.textFramePreferences.insetSpacing = [0, 0, 0, 0];
+            } catch (_finset) {}
+            try {
+                tf.textFramePreferences.firstBaselineOffset = FirstBaseline.CAP_HEIGHT;
+            } catch (_ffb) {}
 
             // Literal text only (no tokens/markers)
             tf.contents = String(text);
 
             // Apply clean temporary paragraph style (includes font, size, alignment)
             var story = tf.parentStory;
-            try { story.appliedParagraphStyle = tempParaStyle; } catch (_ePara) {}
+            try {
+                story.appliedParagraphStyle = tempParaStyle;
+            } catch (_ePara) {}
 
             // Ensure no character style overrides and ignore text wrap for consistency
             try {
                 var noneChar = doc.characterStyles.itemByName("[None]");
                 if (tf.texts && tf.texts.length > 0) {
-                    try { tf.texts[0].appliedCharacterStyle = noneChar; } catch (_cs) {}
-                    try { if (tf.texts[0].clearOverrides) tf.texts[0].clearOverrides(); } catch (_co) {}
+                    try {
+                        tf.texts[0].appliedCharacterStyle = noneChar;
+                    } catch (_cs) {}
+                    try {
+                        if (tf.texts[0].clearOverrides) tf.texts[0].clearOverrides();
+                    } catch (_co) {}
                 }
             } catch (_eChar) {}
-            try { tf.textFramePreferences.ignoreTextWrap = true; } catch (_eWrap) {}
-            try { tf.textFramePreferences.verticalJustification = VerticalJustification.CENTER_ALIGN; } catch (_e3) {}
+            try {
+                tf.textFramePreferences.ignoreTextWrap = true;
+            } catch (_eWrap) {}
+            try {
+                tf.textFramePreferences.verticalJustification = VerticalJustification.CENTER_ALIGN;
+            } catch (_e3) {}
 
             // Apply frame-level properties that cannot be set in paragraph style
             // Opacity 65%
-            try { tf.transparencySettings.blendingSettings.opacity = WM_DEFAULT_OPACITY; } catch (_e4) {}
+            try {
+                tf.transparencySettings.blendingSettings.opacity = WM_DEFAULT_OPACITY;
+            } catch (_e4) {}
 
             // Rotate and re-center
-            try { tf.rotationAngle = WM_DEFAULT_ANGLE; } catch (_e5) {}
             try {
-                var gb = tf.geometricBounds, fx = (gb[1] + gb[3]) / 2, fy = (gb[0] + gb[2]) / 2;
+                tf.rotationAngle = WM_DEFAULT_ANGLE;
+            } catch (_e5) {}
+            try {
+                var gb = tf.geometricBounds,
+                    fx = (gb[1] + gb[3]) / 2,
+                    fy = (gb[0] + gb[2]) / 2;
                 tf.move(undefined, [cx - fx, cy - fy]);
             } catch (_e6) {}
         }
@@ -616,7 +811,9 @@ Usage:
 
     function removeWatermarkLayer(doc, lyr) {
         if (!lyr || !lyr.isValid) return;
-        try { lyr.remove(); } catch (_e) {}
+        try {
+            lyr.remove();
+        } catch (_e) {}
         // Clean up temporary watermark styles
         removeWatermarkStyles(doc);
     }
@@ -624,46 +821,56 @@ Usage:
     var didSomething = false;
     var tmpWM = null;
 
-    app.doScript(function(){
-        var sp = app.scriptPreferences;
-        var _origUnits = null;
-        var _origRedraw = null;
-        try {
-            // Normalize units and suppress redraw during heavy operations
-            try { _origUnits = sp.measurementUnit; sp.measurementUnit = MeasurementUnits.POINTS; } catch (_u0) {}
-            try { _origRedraw = sp.enableRedraw; sp.enableRedraw = false; } catch (_r0) {}
+    app.doScript(
+        function () {
+            function runExports() {
+                // Apply watermark if selected (this is the destructive part)
+                if (cbWatermark.value) {
+                    // Use the UI value or "Sample" as default
+                    tmpWM = applyWatermarkLayer(doc, String(watermarkTextEdit.text || "Sample"));
+                }
 
-            // Apply watermark if selected (this is the destructive part)
-            if (cbWatermark.value) {
-                // Use the UI value or "Sample" as default
-                tmpWM = applyWatermarkLayer(doc, String(watermarkTextEdit.text || "Sample"));
+                // Normal
+                if (cbNormal.value) {
+                    var normalFile = File(outFolder.fsName + "/" + baseName + ".pdf");
+                    _prog.set("Exporting: " + normalFile.name, 10);
+                    // Removal of first two pages is NOT applied for normal export
+                    if (exportNormal(normalFile)) didSomething = true;
+                }
+
+                // Reversed
+                if (cbReversed.value) {
+                    var reversedFile = File(outFolder.fsName + "/" + baseName + "-reversed.pdf");
+                    _prog.set("Exporting: " + reversedFile.name, tmpWM ? 60 : 10);
+                    if (exportVariant(true, cbRemoveTwo.value, reversedFile)) didSomething = true;
+                }
             }
 
-            // Normal
-            if (cbNormal.value) {
-                _prog.set("Exporting normal order…", 10);
-                var normalFile = File(outFolder.fsName + "/" + baseName + ".pdf");
-                // Removal of first two pages is NOT applied for normal export
-                if (exportNormal(normalFile)) didSomething = true;
+            try {
+                InDesignUtils.Prefs.withSafePreferences(
+                    function () {
+                        // Normalize units and suppress redraw during heavy operations
+                        return runExports();
+                    },
+                    { measurementUnit: MeasurementUnits.POINTS, enableRedraw: false }
+                );
+            } finally {
+                // Always clean up watermark layer first, then close progress
+                if (tmpWM) {
+                    try {
+                        removeWatermarkLayer(doc, tmpWM);
+                    } catch (_ew) {}
+                }
+                try {
+                    _prog.close();
+                } catch (_ec) {}
             }
-
-            // Reversed
-            if (cbReversed.value) {
-                _prog.set("Exporting reversed order…", tmpWM ? 60 : 10);
-                var reversedFile = File(outFolder.fsName + "/" + baseName + "-reversed.pdf");
-                if (exportVariant(true, cbRemoveTwo.value, reversedFile)) didSomething = true;
-            }
-        } finally {
-            // Always clean up watermark layer first, then close progress
-            if (tmpWM) {
-                try { removeWatermarkLayer(doc, tmpWM); } catch (_ew) {}
-            }
-            // Restore measurement units and redraw
-            try { if (_origUnits != null) sp.measurementUnit = _origUnits; } catch (_u1) {}
-            try { if (_origRedraw != null) sp.enableRedraw = _origRedraw; } catch (_r1) {}
-            try { _prog.close(); } catch (_ec) {}
-        }
-    }, ScriptLanguage.JAVASCRIPT, undefined, UndoModes.ENTIRE_SCRIPT, "Export PDF");
+        },
+        ScriptLanguage.JAVASCRIPT,
+        undefined,
+        UndoModes.ENTIRE_SCRIPT,
+        "Export PDF"
+    );
 
     if (didSomething) {
         notify("Export completed.");
@@ -676,25 +883,29 @@ Usage:
 
                 // Try to activate the PDF viewer application (system-specific)
                 var osName = $.os.toLowerCase();
-                if (osName.indexOf('windows') !== -1) {
+                if (osName.indexOf("windows") !== -1) {
                     // Windows: Try to activate Adobe Acrobat/Reader
                     try {
-                        var cmd = 'powershell -Command "Add-Type -AssemblyName Microsoft.VisualBasic; [Microsoft.VisualBasic.Interaction]::AppActivate(\\"Adobe\\")"';
+                        var cmd =
+                            'powershell -Command "Add-Type -AssemblyName Microsoft.VisualBasic; [Microsoft.VisualBasic.Interaction]::AppActivate(\\"Adobe\\")"';
                         app.system(cmd);
                     } catch (e) {}
-                } else if (osName.indexOf('macintosh') !== -1) {
+                } else if (osName.indexOf("macintosh") !== -1) {
                     // macOS: Use AppleScript to bring PDF viewer to front
                     try {
-                        var script = 'tell application "System Events" to tell process "Preview" to set frontmost to true';
+                        var script =
+                            'tell application "System Events" to tell process "Preview" to set frontmost to true';
                         app.doScript(script, ScriptLanguage.APPLESCRIPT_LANGUAGE);
                     } catch (e) {
                         // If Preview failed, try Adobe Acrobat/Reader
                         try {
-                            var script2 = 'tell application "System Events" to tell process "Adobe Acrobat" to set frontmost to true';
+                            var script2 =
+                                'tell application "System Events" to tell process "Adobe Acrobat" to set frontmost to true';
                             app.doScript(script2, ScriptLanguage.APPLESCRIPT_LANGUAGE);
                         } catch (e2) {
                             try {
-                                var script3 = 'tell application "System Events" to tell process "Adobe Reader" to set frontmost to true';
+                                var script3 =
+                                    'tell application "System Events" to tell process "Adobe Reader" to set frontmost to true';
                                 app.doScript(script3, ScriptLanguage.APPLESCRIPT_LANGUAGE);
                             } catch (e3) {}
                         }
@@ -707,4 +918,10 @@ Usage:
     } else {
         notify("Nothing was exported.");
     }
+
+    // Reset find/change preferences to avoid leaking state
+    try {
+        app.findTextPreferences = app.changeTextPreferences = NothingEnum.nothing;
+        app.findGrepPreferences = app.changeGrepPreferences = NothingEnum.nothing;
+    } catch (_fcReset) {}
 })();

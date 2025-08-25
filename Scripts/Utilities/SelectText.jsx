@@ -3,35 +3,33 @@
  to the end of the story. Uses guards and early returns per project standards.
 */
 
-(function () {
-    // InDesign-style message dialog helper and alert override
-    function __showMessage__(title, message) {
-        var w = new Window('dialog', title || 'Message');
-        w.orientation = 'column';
-        w.margins = 16;
-        w.spacing = 12;
-        var msg = w.add('statictext', undefined, message, { multiline: true });
-        msg.characters = 60;
-        var row = w.add('group');
-        row.alignment = 'right';
-        row.spacing = 8;
-        var okBtn = row.add('button', undefined, 'OK', { name: 'ok' });
-        w.defaultElement = okBtn;
-        w.cancelElement = okBtn;
-        w.center();
-        w.show();
-    }
-    var alert = function(message) { __showMessage__('Select Text', String(message)); };
+// Load shared utilities
+var scriptFile = File($.fileName);
+var utilsFile = File(scriptFile.parent.parent + "/Shared/InDesignUtils.jsx");
+if (utilsFile.exists) $.evalFile(utilsFile);
 
-    // Guard: ensure InDesign and a document are available
-    if (!app || !app.documents || app.documents.length === 0) {
+(function () {
+    // Use shared alert function
+    var alert = function (message) {
+        InDesignUtils.UI.alert(message, "Select Text");
+    };
+
+    // Guard: ensure document is available
+    var doc = InDesignUtils.Objects.getActiveDocument();
+    if (!doc) {
         alert("Open a document before running SelectText.");
         return;
     }
 
     // Guard: ensure we have a selection
-    var sel = (app.selection && app.selection.length > 0) ? app.selection[0] : null;
-    if (!sel || (sel.constructor.name !== "Text" && sel.constructor.name !== "InsertionPoint")) {
+    var selection = InDesignUtils.Objects.getSelection();
+    if (!selection) {
+        alert("Place the cursor in a text frame or select text first.");
+        return;
+    }
+
+    var sel = selection[0];
+    if (sel.constructor.name !== "Text" && sel.constructor.name !== "InsertionPoint") {
         alert("Place the cursor in a text frame or select text first.");
         return;
     }
@@ -41,7 +39,8 @@
     var startIndex;
     if (sel.constructor.name === "Text") {
         startIndex = sel.index + sel.length; // after current selection
-    } else { // InsertionPoint
+    } else {
+        // InsertionPoint
         startIndex = sel.index; // from cursor
     }
 
