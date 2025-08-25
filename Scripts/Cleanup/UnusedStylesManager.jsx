@@ -6,6 +6,22 @@
  */
 
 (function () {
+  // InDesign dialog helper and override for alert(): avoid system dialogs
+  function __showMessageDialog(title, text) {
+    var w = new Window('dialog', title || 'Message');
+    w.orientation = 'column';
+    w.alignChildren = 'left';
+    w.margins = 16;
+    w.spacing = 12;
+    var st = w.add('statictext', undefined, String(text));
+    st.characters = 60;
+    var row = w.add('group'); row.alignment = 'right'; row.spacing = 8;
+    var btn = row.add('button', undefined, 'Close', { name: 'ok' });
+    w.defaultElement = btn; w.cancelElement = btn;
+    w.show();
+  }
+  var alert = function (msg) { try { __showMessageDialog('Message', msg); } catch (e) { try { $.writeln(String(msg)); } catch(_e){} } };
+
   if (app.documents.length === 0) { alert("Open a document first."); return; }
   var doc = app.activeDocument;
 
@@ -386,6 +402,8 @@
   // Main UI
   var w = new Window("dialog","Unused Styles Manager");
   w.alignChildren = "fill";
+  w.margins = 16;
+  w.spacing = 12;
 
   // Layout: left column with type radios; right panel with mode + list + buttons
   var main = w.add("group");
@@ -396,6 +414,8 @@
   var typeCol = main.add("panel", undefined, "Type");
   typeCol.orientation = "column";
   typeCol.alignChildren = "left";
+  typeCol.margins = 12;
+  typeCol.spacing = 8;
   var rbAll = typeCol.add("radiobutton", undefined, "All");
   var rbParagraph = typeCol.add("radiobutton", undefined, "Paragraph");
   var rbCharacter = typeCol.add("radiobutton", undefined, "Character");
@@ -559,6 +579,9 @@
     if (!list.selection || list.selection.length===0){ alert("Select one or more items to delete."); return; }
     var sel=list.selection, copy=[], i;
     for (i=0;i<sel.length;i++) copy.push(sel[i]); // ES3 copy
+
+    // No pre-action confirmation per UX policy; rely on a single undo step instead
+    // Proceed to delete selected items directly
 
     var delCount=0, fail=0;
 

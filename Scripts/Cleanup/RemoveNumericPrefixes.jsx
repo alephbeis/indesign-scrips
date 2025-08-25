@@ -9,6 +9,22 @@
 */
 
 (function () {
+    // InDesign dialog helper and override for alert(): avoid system dialogs
+    function __showMessageDialog(title, text) {
+        var w = new Window('dialog', title || 'Message');
+        w.orientation = 'column';
+        w.alignChildren = 'left';
+        w.margins = 16;
+        w.spacing = 12;
+        var st = w.add('statictext', undefined, String(text));
+        st.characters = 60;
+        var row = w.add('group'); row.alignment = 'right'; row.spacing = 8;
+        var btn = row.add('button', undefined, 'Close', { name: 'ok' });
+        w.defaultElement = btn; w.cancelElement = btn;
+        w.show();
+    }
+    var alert = function (msg) { try { __showMessageDialog('Message', msg); } catch (e) { try { $.writeln(String(msg)); } catch(_e){} } };
+
     // Guard: ensure InDesign and a document are available
     if (!app || !app.documents || app.documents.length === 0) {
         alert("Open a document before running RemoveNumericPrefixes.");
@@ -98,6 +114,7 @@
         dialog.orientation = "column";
         dialog.alignChildren = "left";
         dialog.margins = 16;
+        dialog.spacing = 12;
 
         var msg = dialog.add("statictext", undefined, "Manage explicit numeric prefixes (e.g., '1. ' at the start of a paragraph)");
         msg.characters = 70;
@@ -105,6 +122,7 @@
         // Scope panel
         var scopePanel = dialog.add("panel", undefined, "Scope");
         scopePanel.orientation = "column"; scopePanel.alignChildren = "left"; scopePanel.margins = 12;
+        scopePanel.spacing = 8;
 
         // Determine selection context first
         var hasTextFrameSelection = false;
@@ -165,9 +183,13 @@
         // Bottom buttons: Cancel, Show List, and Run
         var g = dialog.add("group");
         g.alignment = "right";
-        var cancelBtn = g.add("button", undefined, "Cancel");
+        var cancelBtn = g.add("button", undefined, "Cancel", {name: "cancel"});
         var showBtn = g.add("button", undefined, "Show List");
         var runBtn = g.add("button", undefined, "Run", {name: "ok"});
+
+        // Default/cancel roles per UX conventions
+        dialog.defaultElement = runBtn;
+        dialog.cancelElement = cancelBtn;
 
         var result = null;
         
@@ -203,6 +225,7 @@
         w.orientation = "column";
         w.alignChildren = "fill";
         w.margins = 16;
+        w.spacing = 12;
         var summary = w.add("statictext", undefined, summaryText);
         summary.characters = 70;
         
@@ -267,24 +290,6 @@
 
     // Helper: perform removal with confirmation and reporting across targets
     function performRemoval(pattern, targets) {
-        // Ask for confirmation
-        var confirmDlg = new Window("dialog", "Confirm Removal");
-        confirmDlg.orientation = "column";
-        confirmDlg.alignChildren = "left";
-        confirmDlg.margins = 16;
-        confirmDlg.add("statictext", undefined, "Remove all explicit numeric prefixes at the start of paragraphs?");
-        var cg = confirmDlg.add("group");
-        cg.alignment = "right";
-        var yesBtn = cg.add("button", undefined, "Yes");
-        var noBtn = cg.add("button", undefined, "No");
-        var confirmed = false;
-        yesBtn.onClick = function(){ confirmed = true; confirmDlg.close(1); };
-        noBtn.onClick = function(){ confirmed = false; confirmDlg.close(0); };
-        var cRes = confirmDlg.show();
-        if (cRes !== 1 || !confirmed) {
-            return; // user declined
-        }
-
         // Count across targets, then change within a single undo step
         var count = 0;
         var matches = findMatchesAcrossTargets(pattern, targets);

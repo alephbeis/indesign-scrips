@@ -7,6 +7,22 @@
  * InDesign ExtendScript (JSX)
  */
 (function () {
+  // InDesign dialog helper and override for alert(): avoid system dialogs
+  function __showMessageDialog(title, text) {
+    var w = new Window('dialog', title || 'Message');
+    w.orientation = 'column';
+    w.alignChildren = 'left';
+    w.margins = 16;
+    w.spacing = 12;
+    var st = w.add('statictext', undefined, String(text));
+    st.characters = 60;
+    var row = w.add('group'); row.alignment = 'right'; row.spacing = 8;
+    var btn = row.add('button', undefined, 'Close', { name: 'ok' });
+    w.defaultElement = btn; w.cancelElement = btn;
+    w.show();
+  }
+  var alert = function (msg) { try { __showMessageDialog('Message', msg); } catch (e) { try { $.writeln(String(msg)); } catch(_e){} } };
+
   if (app.documents.length === 0) { alert("Open a document first."); return; }
   var doc = app.activeDocument;
 
@@ -155,8 +171,12 @@
 
     var btns = dlg.add("group");
     btns.alignment = "right"; // Right-aligned per UX conventions
-    var btnCancel = btns.add("button", undefined, "Cancel");
+    var btnCancel = btns.add("button", undefined, "Cancel", {name: "cancel"});
     var btnOK = btns.add("button", undefined, "Run", {name: "ok"});
+
+    // Default/cancel roles for keyboard handling
+    dlg.defaultElement = btnOK;
+    dlg.cancelElement = btnCancel;
 
     // Disable OK until both source and destination are selected for the active operation
     btnOK.enabled = false;

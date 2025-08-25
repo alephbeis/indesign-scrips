@@ -5,6 +5,22 @@
 */
 
 (function () {
+    // InDesign dialog helper and override for alert(): avoid system dialogs
+    function __showMessageDialog(title, text) {
+        var w = new Window('dialog', title || 'Message');
+        w.orientation = 'column';
+        w.alignChildren = 'left';
+        w.margins = 16;
+        w.spacing = 12;
+        var st = w.add('statictext', undefined, String(text));
+        st.characters = 60;
+        var row = w.add('group'); row.alignment = 'right'; row.spacing = 8;
+        var btn = row.add('button', undefined, 'Close', { name: 'ok' });
+        w.defaultElement = btn; w.cancelElement = btn;
+        w.show();
+    }
+    var alert = function (msg) { try { __showMessageDialog('Message', msg); } catch (e) { try { $.writeln(String(msg)); } catch(_e){} } };
+
     if (!app || !app.documents || app.documents.length === 0) {
         alert("Open a document before running CharacterCleanup.");
         return;
@@ -70,6 +86,7 @@
     dlg.orientation = "column";
     dlg.alignChildren = "left";
     dlg.margins = 16;
+    dlg.spacing = 12;
 
     dlg.add("statictext", undefined, "Select the cleanup actions to run:");
 
@@ -84,7 +101,7 @@
     optionsPanel.orientation = "column";
     optionsPanel.alignChildren = "left";
     optionsPanel.margins = 12;
-    optionsPanel.spacing = 6;
+    optionsPanel.spacing = 8;
 
     var allCb = optionsPanel.add("checkbox", undefined, "All");
     var cbFix = optionsPanel.add("checkbox", undefined, "Fix marks order (dagesh before vowels)");
@@ -98,7 +115,7 @@
     scopePanel.orientation = "column";
     scopePanel.alignChildren = "left";
     scopePanel.margins = 12;
-    scopePanel.spacing = 6;
+    scopePanel.spacing = 8;
 
     // Determine selection context first
     var hasTextFrameSelection = false;
@@ -183,8 +200,13 @@
 
     var btns = dlg.add("group");
     btns.alignment = "right";
-    var cancelBtn = btns.add("button", undefined, "Cancel");
+    var cancelBtn = btns.add("button", undefined, "Cancel", {name: "cancel"});
     var runBtn = btns.add("button", undefined, "Run", {name: "ok"});
+
+    // Default/cancel roles for keyboard handling
+    dlg.defaultElement = runBtn;
+    dlg.cancelElement = cancelBtn;
+
     updateRunEnabled();
 
     runBtn.onClick = function () { dlg.close(1); };
@@ -670,7 +692,7 @@
         completionDlg.orientation = "column";
         completionDlg.alignChildren = "left";
         completionDlg.margins = 16;
-        completionDlg.spacing = 10;
+        completionDlg.spacing = 12;
 
         if (changesApplied.length === 0) {
             completionDlg.add("statictext", undefined, "Nothing to clean - no changes were made.");
