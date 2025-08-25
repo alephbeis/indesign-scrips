@@ -1,7 +1,13 @@
 {
   "root": true,
-  "env": { "es6": false },
+  "ignorePatterns": ["**/*.jsxbin", "node_modules/", "**/dist/**"],
+  "env": {
+    "browser": false,
+    "node": false,
+    "es6": false
+  },
   "parserOptions": { "ecmaVersion": 5, "sourceType": "script" },
+
   "globals": {
     "app": "readonly",
     "$": "readonly",
@@ -34,6 +40,7 @@
     "CoordinateSpaces": "readonly",
     "alert": "writable"
   },
+
   "rules": {
     "no-undef": "error",
     "no-redeclare": "error",
@@ -44,15 +51,35 @@
     "eqeqeq": ["warn", "allow-null"],
     "no-extra-semi": "warn",
     "no-trailing-spaces": "warn",
+    "no-fallthrough": "error",
+    "no-prototype-builtins": "warn",
+    "guard-for-in": "error",
+    "no-extend-native": "error",
+    "no-eval": "error",
+    "radix": "error",
+    "wrap-iife": ["error", "inside"],
+    "yoda": ["error", "never"],
+    "no-mixed-spaces-and-tabs": "error",
+    "eol-last": ["warn", "always"],
+    "comma-dangle": ["error", "never"],
+    "semi": ["error", "always"],
     "consistent-return": "off",
     "no-var": "off",
     "prefer-const": "off",
-    "prefer-let": "off"
+    "prefer-let": "off",
+    "no-template-curly-in-string": "error",
+    "no-useless-escape": "warn"
   },
+
   "overrides": [
     {
       "files": ["Scripts/**/*.jsx"],
-      "parserOptions": { "ecmaVersion": 3, "sourceType": "script" }
+      "parserOptions": { "ecmaVersion": 3, "sourceType": "script" },
+      "rules": {
+        "no-template-curly-in-string": "error",
+        "comma-dangle": ["error", "never"],
+        "no-useless-concat": "warn"
+      }
     },
     {
       "files": ["Scripts/Export/BulkPDFGenerator.jsx"],
