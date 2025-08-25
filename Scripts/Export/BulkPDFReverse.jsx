@@ -1,10 +1,10 @@
 /*
-BulkVariantPDFReverse.jsx
+BulkPDFReverse.jsx
 
 Purpose:
 - Bulk export one PDF per "variant" layer (layers prefixed with "v-").
 - For each variant layer: hide all other variant layers, show only that one, then export.
-- PDF export is always in reversed page order and always removes the first two pages from the export (cover + blank).
+- Provides Export Options: Normal order, or Reverse order (reverse also removes the first two pages: cover + blank).
 - Abort if the document ends on an odd page.
 
 Conventions:
@@ -14,7 +14,7 @@ Conventions:
 
 Usage:
 - Open a document with variant layers named with prefix "v-".
-- Run the script, choose PDF preset and base filename.
+- Run the script, choose PDF preset, base filename, and export option (Normal or Reverse).
 - The script will export one PDF per variant layer to the 'PDF' subfolder: <base>-<layerName>.pdf
 */
 
@@ -27,11 +27,7 @@ Usage:
     var doc = app.activeDocument;
     var totalPages = doc.pages.length;
 
-    // Require an even number of pages
-    if (totalPages % 2 === 1) {
-        alert("This document ends on an odd page. Please fix the pagination before running this script.");
-        return;
-    }
+    // Note: Reverse export requires even number of pages; this will be validated after option selection.
 
     // Collect variant layers: names starting with "v-" (case-insensitive)
     function getVariantLayers(d) {
@@ -98,10 +94,17 @@ Usage:
     }
 
     // UI: minimal, consistent with other scripts in this repo
-    var w = new Window("dialog", "Bulk Variant PDF Export (Reversed, skip first two)");
+    var w = new Window("dialog", "Bulk Variant PDF Export");
     w.orientation = "column"; w.alignChildren = ["fill", "top"]; w.margins = 16; w.spacing = 12;
 
-    w.add("statictext", undefined, "Exports one PDF per 'v-' layer in reversed order, skipping first two pages.");
+    w.add("statictext", undefined, "Exports one PDF per 'v-' layer. Choose export order below.");
+
+    var optionsPanel = w.add("panel", undefined, "Export Options");
+    optionsPanel.orientation = "column"; optionsPanel.alignChildren = ["left", "top"]; optionsPanel.margins = 12; optionsPanel.spacing = 6;
+    var cbNormal = optionsPanel.add("checkbox", undefined, "Export Normal Order");
+    cbNormal.value = false;
+    var cbReverse = optionsPanel.add("checkbox", undefined, "Export Reverse Order (skip first two pages)");
+    cbReverse.value = true; // default to current behavior
 
     var presetGroup = w.add("group"); presetGroup.orientation = "row"; presetGroup.alignChildren = ["left", "center"]; presetGroup.spacing = 8;
     presetGroup.add("statictext", undefined, "PDF Preset:");
@@ -156,6 +159,16 @@ Usage:
 
     var preset = presetObjs[presetDropdown.selection.index];
 
+    // Validate selection and page parity
+    if (!cbNormal.value && !cbReverse.value) {
+        alert("Please select at least one export option (Normal and/or Reverse).");
+        return;
+    }
+    if (cbReverse.value && (totalPages % 2 === 1)) {
+        alert("This document ends on an odd page. Please fix the pagination before running Reverse export (or deselect Reverse).");
+        return;
+    }
+
     // Progress palette
     var _prog = (function(){
         try {
@@ -198,6 +211,12 @@ Usage:
         return pages.join(",");
     }
 
+    function buildNormalAllRange(total) {
+        if (total <= 0) return "";
+        // Use absolute page numbers to avoid section naming issues
+        return "+1-+" + total;
+    }
+
     function hideAllVariantLayers() {
         for (var i = 0; i < variantLayers.length; i++) {
             try { variantLayers[i].visible = false; } catch (e) {}
@@ -218,30 +237,51 @@ Usage:
         try { pdfPrefs.exportReaderSpreads = false; } catch(_eRS) {}
         try { pdfPrefs.viewPDF = false; } catch(_eVP) {}
 
-        var pageRange = buildReversedSkipTwoRange(totalPages);
-        if (!pageRange) {
-            alert("Nothing to export after removing the first two pages.");
-            return;
-        }
+        var doNormal = cbNormal.value;
+        var doReverse = cbReverse.value;
+        var modes = [];
+        if (doNormal) modes.push("normal");
+        if (doReverse) modes.push("reverse");
+
+        var totalJobs = variantLayers.length * modes.length;
+        var jobIndex = 0;
 
         for (var idx = 0; idx < variantLayers.length; idx++) {
             var lyr = variantLayers[idx];
-            var suffix = sanitizeFilenamePart(lyr.name);
-            var outFile = File(outFolder.fsName + "/" + baseName + "-" + suffix + ".pdf");
-
-            _prog.set("Exporting: " + outFile.name, (idx / variantLayers.length) * 100);
+            var rawSuffix = String(lyr.name || "");
+            var stripped = rawSuffix.replace(/^v-/i, "");
+            var cleanSuffix = sanitizeFilenamePart(stripped && stripped.length ? stripped : rawSuffix);
 
             // Toggle visibility: only this variant visible
             hideAllVariantLayers();
             try { lyr.visible = true; } catch (e) {}
 
-            // Set page range and export
-            try {
-                app.pdfExportPreferences.pageRange = pageRange;
-                doc.exportFile(ExportFormat.PDF_TYPE, outFile, false, preset);
-                okCount++;
-            } catch (ex) {
-                failCount++;
+            for (var m = 0; m < modes.length; m++) {
+                var mode = modes[m];
+                var pageRange = (mode === "reverse") ? buildReversedSkipTwoRange(totalPages) : buildNormalAllRange(totalPages);
+                if (!pageRange) {
+                    if (mode === "reverse") {
+                        alert("Nothing to export after removing the first two pages.");
+                    } else {
+                        alert("Nothing to export.");
+                    }
+                    return;
+                }
+
+                var nameSuffix = cleanSuffix + ((mode === "reverse" && doNormal && doReverse) ? "-reversed" : "");
+                var outFile = File(outFolder.fsName + "/" + baseName + "-" + nameSuffix + ".pdf");
+
+                var percent = totalJobs > 0 ? (jobIndex / totalJobs) * 100 : 0;
+                _prog.set("Exporting: " + outFile.name, percent);
+
+                try {
+                    app.pdfExportPreferences.pageRange = pageRange;
+                    doc.exportFile(ExportFormat.PDF_TYPE, outFile, false, preset);
+                    okCount++;
+                } catch (ex) {
+                    failCount++;
+                }
+                jobIndex++;
             }
         }
         _prog.set("Done.", 100);

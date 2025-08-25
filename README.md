@@ -52,7 +52,7 @@ InDesign (JSX): place scripts into your Scripts Panel folder and restart InDesig
 
 ### Export Scripts
 - **ExportPDF.jsx** — Export Normal and/or Reversed PDFs using a chosen preset. Features: optional first-page removal, security settings, hyperlinks/bookmarks toggles, viewer preferences, and progress feedback. Non-destructive. See Docs/ScriptUsage/Export/ExportPDF.md for details.
-- **BulkVariantPDFReverse.jsx** — Batch export reversed-variant PDFs across multiple documents using a chosen preset. Designed for folder-based processing workflows. See Docs/ScriptUsage/Export/BulkVariantPDFReverse.md for details.
+- **BulkPDFReverse.jsx** — Batch export reversed-variant PDFs across multiple documents using a chosen preset. Designed for folder-based processing workflows. See Docs/ScriptUsage/Export/BulkVariantPDFReverse.md for details.
 - **ExportPlainRTF.jsx** — Export text-only RTF with all formatting removed. Preserves page breaks, includes section-aware page numbering, and center-aligns text. See Docs/ScriptUsage/Export/ExportPlainRTF.md for details.
 - **BulkPDFGenerator.jsx** *(Not Maintained)* — Advanced PDF generation with "Nekudos" and "Variants" logic. See Docs/ScriptUsage/Export/BulkPDFGenerator.md for details.
 

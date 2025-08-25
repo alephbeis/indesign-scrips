@@ -2,23 +2,24 @@
 
 ## Overview
 
-The `BulkVariantPDFReverse.jsx` script enables automated batch export of PDF files for each variant layer in your InDesign document. This specialized tool exports PDFs in reversed page order while automatically removing the first two pages (typically cover and blank pages), making it ideal for educational materials and publications requiring variant-specific outputs.
+The `BulkPDFReverse.jsx` script enables automated batch export of PDF files for each variant layer in your InDesign document. This tool can export PDFs in Normal order or in Reversed page order. When using Reverse Order, it automatically removes the first two pages (typically cover and blank pages), making it ideal for educational materials and publications requiring variant-specific outputs.
 
 ## Usage
 
 1. Open an InDesign document with variant layers (layers named with "v-" prefix)
-2. Ensure the document has an even number of pages and is saved
-3. Run the `BulkVariantPDFReverse.jsx` script from the Scripts panel
+2. Save the document; if exporting Reverse Order, ensure it has an even number of pages
+3. Run the `BulkPDFReverse.jsx` script from the Scripts panel
 4. Configure your options in the dialog:
-   - Select a PDF export preset
-   - Set the base filename for exported files
+  - Choose export order: Normal, Reversed, or both
+  - Select a PDF export preset
+  - Set the base filename for exported files
 5. Click "Export" to begin the batch generation process
 
 ## Features
 
 - **Variant Layer Detection**: Automatically identifies layers with "v-" prefix (case-insensitive)
-- **Reversed Page Order**: All PDFs are exported with pages in reverse order
-- **Page Removal**: Automatically removes the first two pages from exports
+- **Export Orders**: Export in Normal order, Reversed order, or both in one run
+- **Page Removal**: Automatically removes the first two pages from reversed exports
 - **Non-Destructive**: Uses page range-based export without modifying the document
 - **Batch Processing**: Generates one PDF per variant layer automatically
 - **Organized Output**: Creates a 'PDF' subfolder next to your INDD file for all exports
@@ -29,15 +30,20 @@ The `BulkVariantPDFReverse.jsx` script enables automated batch export of PDF fil
 For each variant layer, the script:
 1. Hides all other variant layers
 2. Shows only the current variant layer
-3. Exports a PDF with reversed page order
-4. Removes the first two pages from the export
-5. Saves the file as `<base>-<layerName>.pdf`
+3. Exports PDFs according to your selection:
+   - Normal order: exports all pages in order
+   - Reversed order: exports pages in reverse order and removes the first two pages
+4. Saves files as:
+   - Normal: `<base>-<layerNameWithoutV>.pdf`
+   - Reversed: `<base>-<layerNameWithoutV>-reversed.pdf` when both modes are selected; otherwise `<base>-<layerNameWithoutV>.pdf`
+
+Note: `layerNameWithoutV` strips a leading `v-` (case-insensitive) from the layer name.
 
 ## Prerequisites
 
 ### Document Requirements
 - **Saved Document**: The document must be saved to determine output location
-- **Even Page Count**: Document must end on an even page number
+- **Even Page Count**: Required only when exporting Reversed order (document must end on an even page)
 - **Variant Layers**: At least one layer with name starting with "v-"
 
 ### System Requirements
