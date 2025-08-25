@@ -1,11 +1,11 @@
 ﻿// testing
 nk = {};
-nk.doNikkud = {kamatz: true, pasach: true, tzeirei: true, segol: true, sheva: true, cholamchaser: true, cholammalei: true, cholammixed: true, chirikchaser: true, chirikmalei: true, chirikmixed: true, 
+nk.doNikkud = {kamatz: true, pasach: true, tzeirei: true, segol: true, sheva: true, cholamchaser: true, cholammalei: true, cholammixed: true, chirikchaser: true, chirikmalei: true, chirikmixed: true,
 					kubutz: true, shuruk: true, chatafkamatz: true, chatafpasach: true, chatafsegol: true, randomized: true};
 nk.doc = app.documents[0];
 nk.originalDoc = app.documents[0];
 
-if (displayUI() == -1){
+if (displayUI() === -1){
 	exit();
 }
 
@@ -62,7 +62,7 @@ function displayUI(){
 				alignChildren = ["left", "bottom"];
 				add("button", undefined, "OK");
 				add("button", undefined, "Cancel");
-			}		
+			}
 		}
 		with (add("group")){
 			orientation = "column";
@@ -96,13 +96,13 @@ function displayUI(){
 	}
 	r =  w.show();
 	// User cancelled operation
-	if (r == 2){
+	if (r === 2){
 		return -1;
 	}
 	// Store choices
 	nk.nikkudDoc = false;
 	for (i = 0; i < nikkudPanel.children.length; i++){
-		if (nikkudPanel.children[i].value == false){
+		if (nikkudPanel.children[i].value === false){
 			nk.doNikkud[nikkudPanel.children[i].text.replace(/ /g, "").toLowerCase()] = false;
 		}
 		else {
@@ -149,7 +149,7 @@ nk.NIKKUD.push({nikkud: "ֲ", name: "Chataf Pasach", hebName: "חטף פתח", s
 nk.NIKKUD.push({nikkud: "ֱ", name: "Chataf Segol", hebName: "חטף סגול", scriptName: "chatafsegol"});
 
 try{
-	app.scriptPreferences.userInteractionLevel = UserInteractionLevels.NEVER_INTERACT;	
+	app.scriptPreferences.userInteractionLevel = UserInteractionLevels.NEVER_INTERACT;
 	main();
 }
 catch(e){
@@ -215,7 +215,7 @@ function main(){
 			nk.doc.preflightOptions.preflightOff = true;
 			getLayerSets();
 			hideAllLevelLayers();
-			nk.currentNikkud = 0;	
+			nk.currentNikkud = 0;
 			randomizeNikkud();
 			createPdfForEachLayerSet("All Nekudos");
 			progressBarWrite("Closing and deleting temp doc...");
@@ -223,10 +223,10 @@ function main(){
 		}
 		tempFile.remove();
 	}
-	if (nk.nikkudDoc == false){
+	if (nk.nikkudDoc === false){
 		createPdfForEachLayerSet();
 	}
-	if (nk.closeDoc == true){
+	if (nk.closeDoc === true){
 		nk.originalDoc.close(SaveOptions.NO);
 	}
 }
@@ -243,7 +243,7 @@ function applyConditionToNikkud(){
 	nk.doc.changeGrep();
 	// Find the Hebrew word
 	app.findGrepPreferences.findWhat = "קמץ";
-	app.changeGrepPreferences.appliedConditions = [nk.CONDITION2];	
+	app.changeGrepPreferences.appliedConditions = [nk.CONDITION2];
 	nk.doc.changeGrep();
 }
 
@@ -300,7 +300,7 @@ function createPdfForEachLayerSet(special){
 		progressBarWrite("Creating PDF for layer set " + theName);
 		// Update progress bar
 		nk.progress.bar.value = (i / nk.layerSetsAsString.length) * 100;
-		nk.progress.window.update();				
+		nk.progress.window.update();
 		// Hide old layer
 		hideAllLevelLayers();
 		// Show layer
@@ -342,7 +342,7 @@ function establishSets(){
 		}
 		setName = theName.split("-")[0];
 		// If, as we're working up the layer list, we come to a new set, create a new array, etc.
-		if (setName != oldSetName){
+		if (setName !== oldSetName){
 			oldSetName = setName;
 			j++;
 			sets[j] = [];
@@ -387,7 +387,7 @@ function getPermutations(sets, checkboxes){
 		result[n] = result[n].join(", ");
 	}
 	return result.reverse().join("\r");
-}	
+}
 
 function getPdfOutputFolder(){
 	var f = nk.doc.filePath;
@@ -429,7 +429,7 @@ function progressBarInitialize(){
 
 function progressBarWrite(m){
 	nk.progress.text.text = m;
-	nk.progress.window.update();				
+	nk.progress.window.update();
 }
 
 function randomizeNikkud(){
@@ -445,7 +445,7 @@ function randomizeNikkud(){
 	for (i = 0; i < findsLength; i++){
 		progressBarWrite("Randomizing nikkud (" + i + "/" + findsLength + ")...");
 		// If this is a letter in a 'Maze' object-style text frame, avoid applying a chataf nikkud to it, provided it is not אחהע.
-		if (mazeStyleExists && finds[i].parentTextFrames[0].appliedObjectStyle.name == "Maze" && finds[i].contents.match("אחהע") === null){
+		if (mazeStyleExists && finds[i].parentTextFrames[0].appliedObjectStyle.name === "Maze" && finds[i].contents.match("אחהע") === null){
 			r = Math.floor(Math.random() * (max - 3));
 		}
 		else {
@@ -462,7 +462,7 @@ function randomizeNikkud(){
 	for (i = 0; i < findsLength; i++){
 		progressBarWrite("Fixing chatafs under non-אחהע letters (" + i + "/" + findsLength + ")...");
 		// Skip the big target letters
-		if (finds[i].appliedParagraphStyle.name.match("Target Letter") != null){
+		if (finds[i].appliedParagraphStyle.name.match("Target Letter") !== null){
 			continue;
 		}
 		maxLetter = finds[i].parentStory.textContainers[0].parentPage.label;
@@ -511,7 +511,7 @@ function randomizeNikkud(){
 }
 
 function removeManzepachPages(){
-	if (nk.TARGET_LETTER_STYLE.isValid == false){
+	if (nk.TARGET_LETTER_STYLE.isValid === false){
 		return;
 	}
 	progressBarWrite("Removing מנצפך pages...");
@@ -526,7 +526,7 @@ function removeManzepachPages(){
 		finds = nk.doc.findGrep(true);
 	}
 }
-	
+
 function replaceSofios(){
 	progressBarWrite("Replacing sofios...");
 	var finds, i, maxLetter, randomLetter;
@@ -615,7 +615,7 @@ function tidyFile(){
 
 function updateTargetLetter(s){
 	nk.progress.text.text = "Updating target letter...";
-	nk.progress.window.update();				
+	nk.progress.window.update();
 	var finds, i, theLetter;
 	app.findGrepPreferences = app.changeGrepPreferences = null;
 	app.findGrepPreferences.appliedParagraphStyle = nk.TARGET_LETTER_STYLE;

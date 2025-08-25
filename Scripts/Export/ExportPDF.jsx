@@ -28,8 +28,34 @@ Usage:
 */
 
 (function () {
+    function showDialog(message, title) {
+        try {
+            var win = new Window('dialog', title || 'Message');
+            win.orientation = 'column';
+            win.margins = 16;
+            win.spacing = 12;
+            var txt = win.add('statictext', undefined, String(message));
+            txt.characters = 60;
+            var row = win.add('group');
+            row.alignment = 'right';
+            var ok = row.add('button', undefined, 'OK', { name: 'ok' });
+            win.defaultElement = ok;
+            win.cancelElement = ok;
+            win.show();
+        } catch (e) {
+            try { $.writeln(String(message)); } catch(_) {}
+        }
+    }
+    // Local notifier to avoid reassigning the built-in alert (read-only in ExtendScript)
+    function notify(msg) {
+        try { showDialog(msg, 'Message'); }
+        catch (e) {
+            try { if (typeof alert === 'function') alert(msg); } catch(_) {}
+            try { $.writeln(String(msg)); } catch(__) {}
+        }
+    }
     if (!app || !app.documents || app.documents.length === 0) {
-        alert("Open a document before running ExportPDFWithOrder.");
+        showDialog("Open a document before running ExportPDFWithOrder.", "Export PDF");
         return;
     }
 
@@ -59,7 +85,7 @@ Usage:
     } catch (e) {}
 
     if (presetNames.length === 0) {
-        alert("No PDF export presets found. Create a PDF preset and try again.");
+        showDialog("No PDF export presets found. Create a PDF preset and try again.", "Export PDF");
         return;
     }
 
@@ -68,7 +94,7 @@ Usage:
     w.orientation = "column";
     w.alignChildren = ["fill", "top"]; w.margins = 16; w.spacing = 12;
 
-    var infoTxt = w.add("statictext", undefined, "Choose what to export and how:");
+    var _infoTxt = w.add("statictext", undefined, "Choose what to export and how:");
 
     var optionsPanel = w.add("panel", undefined, "Export Options");
     optionsPanel.orientation = "column"; optionsPanel.alignChildren = ["left", "top"]; optionsPanel.margins = 12; optionsPanel.spacing = 6;
@@ -102,33 +128,33 @@ Usage:
     // PDF Settings panel for additional options
     var settingsPanel = w.add("panel", undefined, "PDF Settings");
     settingsPanel.orientation = "column"; settingsPanel.alignChildren = ["left", "top"]; settingsPanel.margins = 12; settingsPanel.spacing = 8;
-    
+
     var cbUseSecurity = settingsPanel.add("checkbox", undefined, "Enable PDF security (restrict printing, copying, and changes)");
     cbUseSecurity.value = false;
-    
+
     var cbInteractivePDF = settingsPanel.add("checkbox", undefined, "Interactive PDF (working hyperlinks and buttons)");
     cbInteractivePDF.value = false;
-    
+
     var cbViewPDF;
-    
+
     // Watermark section
     var sep = settingsPanel.add("group", undefined, "");
     sep.margins = 0; sep.spacing = 0; sep.alignment = ["fill","top"]; sep.alignChildren = ["fill","fill"]; // thin separator without extra spacing
     var sepLine = sep.add("panel", undefined, "");
     sepLine.margins = 0;
     sepLine.preferredSize.height = 1; // 1px line
-    
+
     var cbWatermark = settingsPanel.add("checkbox", undefined, "Add text watermark (preconfigured styling)");
     cbWatermark.value = false;
-    
-    var watermarkGroup = settingsPanel.add("group"); watermarkGroup.orientation = "column"; watermarkGroup.alignChildren = ["fill", "top"]; 
+
+    var watermarkGroup = settingsPanel.add("group"); watermarkGroup.orientation = "column"; watermarkGroup.alignChildren = ["fill", "top"];
     watermarkGroup.spacing = 4; watermarkGroup.margins = [20, 0, 0, 0]; // indent
-    
+
     var watermarkTextGroup = watermarkGroup.add("group"); watermarkTextGroup.orientation = "row"; watermarkTextGroup.alignChildren = ["left", "center"]; watermarkTextGroup.spacing = 8;
     watermarkTextGroup.add("statictext", undefined, "Text:");
     var watermarkTextEdit = watermarkTextGroup.add("edittext", undefined, "Sample");
     watermarkTextEdit.characters = 20;
-    
+
     // Enable/disable watermark text input based on main checkbox
     function updateWatermarkEnabled() {
         watermarkTextEdit.enabled = cbWatermark.value;
@@ -160,7 +186,7 @@ Usage:
     cbViewPDF.value = false;
 
     var folderPanel = w.add("panel", undefined, "Output");
-    folderPanel.orientation = "column"; folderPanel.alignChildren = ["fill", "top"]; folderPanel.margins = 12; folderPanel.spacing = 6;
+    folderPanel.orientation = "column"; folderPanel.alignChildren = ["fill", "top"]; folderPanel.margins = 12; folderPanel.spacing = 8;
     var baseNameGroup = folderPanel.add("group"); baseNameGroup.orientation = "row"; baseNameGroup.alignChildren = ["left", "center"]; baseNameGroup.spacing = 8;
     baseNameGroup.add("statictext", undefined, "Base filename:");
     var baseNameEdit = baseNameGroup.add("edittext", undefined, getBaseName(doc.saved ? doc.fullName : { name: doc.name }));
@@ -190,7 +216,7 @@ Usage:
 
     // Validations
     if (!cbNormal.value && !cbReversed.value) {
-        alert("Select at least one of: Export Normal or Export Reversed.");
+        showDialog("Select at least one of: Export Normal or Export Reversed.", "Export PDF");
         return;
     }
 
@@ -198,7 +224,7 @@ Usage:
     try {
         var totalPages = doc.pages.length;
         if (cbReversed.value && (totalPages % 2 === 1)) {
-            alert("This document ends on an odd page. Please fix the pagination or deselect 'Export Reversed'.");
+            notify("This document ends on an odd page. Please fix the pagination or deselect 'Export Reversed'.");
             return;
         }
     } catch (eOdd) {}
@@ -211,14 +237,14 @@ Usage:
     }
     if (!outFolder.exists) {
         if (!outFolder.create()) {
-            alert("Could not access or create the output folder.");
+            notify("Could not access or create the output folder.");
             return;
         }
     }
 
     var baseName = baseNameEdit.text.replace(/[\/:*?"<>|]/g, "_");
     if (!baseName || baseName.replace(/\s+/g, "").length === 0) {
-        alert("Please provide a valid base filename.");
+        notify("Please provide a valid base filename.");
         return;
     }
 
@@ -228,15 +254,12 @@ Usage:
     var _prog = (function(){
         try {
             var p = new Window("palette", "Exporting PDFs");
-            p.orientation = "column"; p.alignChildren = ["fill", "top"]; p.margins = 16; p.spacing = 8;
-            
-            // Widen the palette so long labels are fully visible
+            p.orientation = "column"; p.alignChildren = ["fill", "top"]; p.margins = 16; p.spacing = 12;
+            // Ensure sufficient width to avoid truncation; height grows only with content
             try { p.preferredSize.width = 520; } catch(_sz0) {}
-            
             var lbl = p.add("statictext", undefined, "Starting…");
-            try { lbl.preferredSize.width = 500; } catch(_sz1) {}
+            lbl.characters = 48;
             var bar = p.add("progressbar", undefined, 0, 100);
-            try { bar.preferredSize.width = 500; } catch(_sz2) {}
             bar.value = 0;
             p.show();
             return {
@@ -252,7 +275,7 @@ Usage:
     function exportVariant(isReversed, removeFirstTwo, outFile) {
         var useInteractive = cbInteractivePDF.value;
         var totalPages = doc.pages.length;
-        
+
         // Variables for storing original preferences (different for regular vs interactive PDF)
         var origPageRange = null;
         var origReaderSpreads = null;
@@ -261,7 +284,7 @@ Usage:
         var origDisallowCopying = null;
         var origDisallowChanging = null;
         var origViewPDF = null;
-        
+
         try {
             if (useInteractive) {
                 // Store and apply interactive PDF preferences
@@ -269,7 +292,7 @@ Usage:
                 try { origPageRange = intPrefs.pageRange; } catch(_e0) {}
                 try { origReaderSpreads = intPrefs.exportReaderSpreads; } catch(_e1) {}
                 try { origViewPDF = intPrefs.viewPDF; } catch(_e2) {}
-                
+
                 // Apply interactive PDF settings
                 try { intPrefs.exportReaderSpreads = false; } catch(_eRS) {}
                 try { intPrefs.viewPDF = cbViewPDF.value; } catch(_eVP) {}
@@ -283,7 +306,7 @@ Usage:
                 try { origDisallowCopying = pdfPrefs.disallowCopying; } catch(_e4) {}
                 try { origDisallowChanging = pdfPrefs.disallowChanging; } catch(_e5) {}
                 try { origViewPDF = pdfPrefs.viewPDF; } catch(_e6) {}
-                
+
                 // Apply regular PDF settings
                 try { pdfPrefs.exportReaderSpreads = false; } catch(_eRS) {}
                 try { pdfPrefs.useSecurity = cbUseSecurity.value; } catch(_eUS) {}
@@ -294,10 +317,10 @@ Usage:
                 }
                 try { pdfPrefs.viewPDF = cbViewPDF.value; } catch(_eVP) {}
             }
-            
+
             // Build page range string based on export requirements
             var pageRange = "";
-            
+
             if (!isReversed) {
                 // Normal export: sequential pages 1 through N (use absolute numbering with '+')
                 _prog.set("Preparing normal page range…", 20);
@@ -306,23 +329,23 @@ Usage:
                 // Reversed export: pages in reverse order, optionally skipping first two
                 _prog.set("Preparing reversed page range…", 20);
                 var startPage = removeFirstTwo ? 3 : 1;
-                
+
                 if (startPage > totalPages) {
                     return false; // nothing to export after removal
                 }
-                
+
                 // Build a comma-separated reverse page list with absolute numbers: "+N,+N-1,...,+startPage"
                 var pages = [];
                 for (var p = totalPages; p >= startPage; p--) {
                     pages.push("+" + p.toString());
                 }
                 pageRange = pages.join(",");
-                
+
                 if (pages.length === 0) {
                     return false; // nothing to export
                 }
             }
-            
+
             // Set page range and export based on PDF type
             if (useInteractive) {
                 _prog.set("Exporting Interactive PDF with page range: " + pageRange, 60);
@@ -333,12 +356,12 @@ Usage:
                 app.pdfExportPreferences.pageRange = pageRange;
                 doc.exportFile(ExportFormat.PDF_TYPE, outFile, false, preset);
             }
-            
+
             _prog.set("Exported: " + outFile.fsName, 100);
             return true;
-            
+
         } catch (e) {
-            alert("Export failed: " + e);
+            notify("Export failed: " + e);
             return false;
         } finally {
             // Restore original preferences based on export type
@@ -374,7 +397,7 @@ Usage:
     function createWatermarkObjectStyle(doc) {
         var styleName = "__TEMP_WM_OBJECT__";
         var objStyle;
-        
+
         try {
             // Try to get an existing temp style first
             objStyle = doc.objectStyles.itemByName(styleName);
@@ -385,10 +408,10 @@ Usage:
             // Create a new temporary object style
             objStyle = doc.objectStyles.add();
             objStyle.name = styleName;
-            
+
             // Ensure this style is not based on anything to avoid accidental inheritance
             try { objStyle.basedOn = doc.objectStyles.itemByName("[None]"); } catch (_b0) {}
-            
+
             // Set clean properties - no stroke, no fill, no auto-sizing
             try { objStyle.enableStroke = false; } catch (_s1) {}
             try { objStyle.enableFill = false; } catch (_s2) {}
@@ -400,15 +423,15 @@ Usage:
             try { objStyle.textFramePreferences.insetSpacing = [0,0,0,0]; } catch (_sInset) {}
             try { objStyle.textFramePreferences.firstBaselineOffset = FirstBaseline.CAP_HEIGHT; } catch (_fb) {}
         }
-        
+
         return objStyle;
     }
-    
+
     // Create temporary paragraph style with clean properties for watermarks
     function createWatermarkParagraphStyle(doc, textLength, pageWidth, pageHeight) {
         var styleName = "__TEMP_WM_PARAGRAPH__";
         var paraStyle;
-        
+
         try {
             // Try to get existing temp style first
             paraStyle = doc.paragraphStyles.itemByName(styleName);
@@ -423,18 +446,18 @@ Usage:
             } catch (_base) {
                 baseStyle = doc.paragraphStyles[0]; // Fallback to first available
             }
-            
+
             paraStyle = doc.paragraphStyles.add();
             paraStyle.name = styleName;
             paraStyle.basedOn = baseStyle;
-            
+
             // Set clean text properties
             try { paraStyle.justification = Justification.CENTER_ALIGN; } catch (_p1) {}
             try { paraStyle.numberedListStyle = app.numberedListStyles.itemByName("[None]"); } catch (_p2) {}
             try { paraStyle.bulletedListStyle = app.bulletedListStyles.itemByName("[None]"); } catch (_p3) {}
             try { paraStyle.numberingContinue = false; } catch (_p4) {}
             try { paraStyle.numberingStartAt = 1; } catch (_p5) {}
-            
+
             // Set font to specified sans serif bold with robust fallbacks
             try {
                 // Prefer direct Bold face to avoid style resolution issues
@@ -452,7 +475,7 @@ Usage:
                     }
                 }
             }
-            
+
             // Normalize key text attributes to avoid inheriting from document styles
             try { paraStyle.hyphenation = false; } catch (_hy) {}
             try { paraStyle.tracking = 0; } catch (_tr) {}
@@ -468,7 +491,7 @@ Usage:
             try { paraStyle.composer = "Adobe Paragraph Composer"; } catch (_cp) {}
             try { paraStyle.appliedLanguage = app.languagesWithVendors.itemByName("[No Language]"); } catch (_lang1) {}
             try { if (!paraStyle.appliedLanguage || !paraStyle.appliedLanguage.isValid) paraStyle.appliedLanguage = app.languagesWithVendors.itemByName("English: USA"); } catch (_lang2) {}
-            
+
             // Calculate and set point size based on page dimensions and text length
             try {
                 var diag = Math.sqrt(pageWidth * pageWidth + pageHeight * pageHeight);
@@ -479,17 +502,17 @@ Usage:
                 try { paraStyle.pointSize = 72; } catch (_pSizeFallback) {}
             }
         }
-        
+
         return paraStyle;
     }
-    
+
     // Remove temporary watermark styles from document
     function removeWatermarkStyles(doc) {
         try {
             var objStyle = doc.objectStyles.itemByName("__TEMP_WM_OBJECT__");
             if (objStyle.isValid) objStyle.remove();
         } catch (_e1) {}
-        
+
         try {
             var paraStyle = doc.paragraphStyles.itemByName("__TEMP_WM_PARAGRAPH__");
             if (paraStyle.isValid) paraStyle.remove();
@@ -523,13 +546,13 @@ Usage:
             if (!lyr.isValid) lyr = doc.layers.add({ name: "__TEMP_WATERMARK__" });
         } catch (_e0) { lyr = doc.layers.add({ name: "__TEMP_WATERMARK__" }); }
         lyr.locked = false; lyr.visible = true;
-        
+
         // Move layer to the top of the stack to ensure watermark appears above all content
         try { lyr.move(LocationOptions.AT_BEGINNING); } catch (_eMove) {}
 
         var i;
         for (i = 0; i < pages.length; i++) {
-            var p = pages[i], pb = p.bounds; // [y1, x1, y2, x2]
+            var p = pages[i]; pb = p.bounds; // [y1, x1, y2, x2]
             var w = pb[3] - pb[1], h = pb[2] - pb[0];
 
             var tf = p.textFrames.add(lyr);
@@ -599,7 +622,7 @@ Usage:
                 // Use the UI value or "Sample" as default
                 tmpWM = applyWatermarkLayer(doc, String(watermarkTextEdit.text || "Sample"));
             }
-            
+
             // Normal
             if (cbNormal.value) {
                 _prog.set("Exporting normal order…", 10);
@@ -627,14 +650,14 @@ Usage:
     }, ScriptLanguage.JAVASCRIPT, undefined, UndoModes.ENTIRE_SCRIPT, "Export PDF");
 
     if (didSomething) {
-        alert("Export completed.");
-        
+        notify("Export completed.");
+
         // Bring PDF viewer to front AFTER the completion dialog is dismissed
         if (cbViewPDF.value) {
             try {
                 // Small delay to ensure dialog is dismissed and PDF is ready
                 $.sleep(300);
-                
+
                 // Try to activate the PDF viewer application (system-specific)
                 var osName = $.os.toLowerCase();
                 if (osName.indexOf('windows') !== -1) {
@@ -666,6 +689,6 @@ Usage:
             }
         }
     } else {
-        alert("Nothing was exported.");
+        notify("Nothing was exported.");
     }
 })();

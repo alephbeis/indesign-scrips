@@ -19,6 +19,24 @@ Usage:
 */
 
 (function () {
+    function showDialog(message, title) {
+        try {
+            var win = new Window('dialog', title || 'Message');
+            win.orientation = 'column';
+            win.margins = 16;
+            win.spacing = 12;
+            var txt = win.add('statictext', undefined, String(message));
+            txt.characters = 60;
+            var row = win.add('group');
+            row.alignment = 'right';
+            var ok = row.add('button', undefined, 'OK', { name: 'ok' });
+            win.defaultElement = ok;
+            win.cancelElement = ok;
+            win.show();
+        } catch (e) {
+            try { $.writeln(String(message)); } catch(_) {}
+        }
+    }
     if (!app || !app.documents || app.documents.length === 0) {
         alert("Open a document before running BulkVariantPDFReverse.");
         return;
@@ -99,9 +117,9 @@ Usage:
 
     // UI: minimal, consistent with other scripts in this repo
     var w = new Window("dialog", "Bulk Variant PDF Export (Reversed, skip first two)");
-    w.orientation = "column"; w.alignChildren = ["fill", "top"]; w.margins = 16; w.spacing = 10;
+    w.orientation = "column"; w.alignChildren = ["fill", "top"]; w.margins = 16; w.spacing = 12;
 
-    var info = w.add("statictext", undefined, "Exports one PDF per 'v-' layer in reversed order, skipping first two pages.");
+    var _info = w.add("statictext", undefined, "Exports one PDF per 'v-' layer in reversed order, skipping first two pages.");
 
     var presetGroup = w.add("group"); presetGroup.orientation = "row"; presetGroup.alignChildren = ["left", "center"]; presetGroup.spacing = 8;
     presetGroup.add("statictext", undefined, "PDF Preset:");
@@ -123,10 +141,10 @@ Usage:
     var outPathLabel = outInfo.add("statictext", undefined, pdfFolder.fsName);
     outPathLabel.characters = 40;
 
-    var variantsLabel = w.add("statictext", undefined, "Variant layers found: " + variantLayers.length);
+    var _variantsLabel = w.add("statictext", undefined, "Variant layers found: " + variantLayers.length);
 
     var variantsPanel = w.add("panel", undefined, "Variants to export");
-    variantsPanel.alignment = ["fill", "fill"]; variantsPanel.margins = 12; variantsPanel.spacing = 6; variantsPanel.alignChildren = ["fill", "top"];
+    variantsPanel.alignment = ["fill", "fill"]; variantsPanel.margins = 12; variantsPanel.spacing = 8; variantsPanel.alignChildren = ["fill", "top"];
     var variantsList = variantsPanel.add("listbox", undefined, [], {multiselect:false});
     variantsList.preferredSize = [420, 150];
     for (var vli = 0; vli < variantLayers.length; vli++) {
@@ -134,8 +152,8 @@ Usage:
     }
 
     var btns = w.add("group"); btns.alignment = ["right", "bottom"];
-    var cancelBtn = btns.add("button", undefined, "Cancel", {name: "cancel"});
-    var runBtn = btns.add("button", undefined, "Run", {name: "ok"});
+    var _cancelBtn = btns.add("button", undefined, "Cancel", {name: "cancel"});
+    var _runBtn = btns.add("button", undefined, "Run", {name: "ok"});
 
     var r = w.show();
     if (r !== 1) return; // canceled
@@ -160,8 +178,8 @@ Usage:
     var _prog = (function(){
         try {
             var p = new Window("palette", "Exporting Variant PDFs");
-            p.orientation = "column"; p.alignChildren = ["fill", "top"]; p.margins = 16; p.spacing = 8;
-            p.preferredSize = { width: 520, height: 200 };
+            p.orientation = "column"; p.alignChildren = ["fill", "top"]; p.margins = 16; p.spacing = 12;
+            try { p.preferredSize.width = 520; } catch(_eSz) {}
             var lbl = p.add("statictext", undefined, "Starting…");
             lbl.characters = 48;
             var bar = p.add("progressbar", undefined, 0, 100); bar.value = 0;
@@ -224,12 +242,12 @@ Usage:
             return;
         }
 
-        for (var i = 0; i < variantLayers.length; i++) {
-            var lyr = variantLayers[i];
+        for (var idx = 0; idx < variantLayers.length; idx++) {
+            var lyr = variantLayers[idx];
             var suffix = sanitizeFilenamePart(lyr.name);
             var outFile = File(outFolder.fsName + "/" + baseName + "-" + suffix + ".pdf");
 
-            _prog.set("Exporting: " + outFile.name, (i / variantLayers.length) * 100);
+            _prog.set("Exporting: " + outFile.name, (idx / variantLayers.length) * 100);
 
             // Toggle visibility: only this variant visible
             hideAllVariantLayers();

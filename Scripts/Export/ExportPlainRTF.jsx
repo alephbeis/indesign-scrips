@@ -33,9 +33,33 @@ Notes:
             var outFile = null;
             try {
                 sp.enableRedraw = false;
+    // UI helpers
+    function showDialog(message, title) {
+        try {
+            var win = new Window('dialog', title || 'Message');
+            win.orientation = 'column';
+            win.margins = 16;
+            win.spacing = 12;
+            var txt = win.add('statictext', undefined, String(message));
+            txt.characters = 60;
+            var row = win.add('group');
+            row.alignment = 'right';
+            var ok = row.add('button', undefined, 'OK', { name: 'ok' });
+            win.defaultElement = ok;
+            win.cancelElement = ok;
+            win.show();
+        } catch (e) { try { $.writeln(String(message)); } catch(_) {} }
+    }
+    function showAlert(msg) {
+        try { showDialog(msg, 'Message'); }
+        catch (e) {
+            try { if (typeof alert === 'function') { alert(msg); return; } } catch(_) {}
+            try { $.writeln(String(msg)); } catch(_) {}
+        }
+    }
     // Guards: Ensure InDesign and a document are available
     if (!app || !app.documents || app.documents.length === 0) {
-        alert("Open a document before running ExportPlainRTF.");
+        showAlert("Open a document before running ExportPlainRTF.");
         return;
     }
 
@@ -84,10 +108,11 @@ Notes:
 
     // Progress window (simple)
     progWin = new Window("palette", "Export to Plain RTF");
-    progWin.orientation = "column"; progWin.alignChildren = ["fill", "top"]; progWin.margins = 12; progWin.spacing = 8;
+    progWin.orientation = "column"; progWin.alignChildren = ["fill", "top"]; progWin.margins = 16; progWin.spacing = 12;
+    try { progWin.preferredSize.width = 520; } catch(_eSz) {}
     var progTxt = progWin.add("statictext", undefined, "Preparing...");
+    progTxt.characters = 48;
     var progBar = progWin.add("progressbar", undefined, 0, Math.max(1, srcDoc.pages.length));
-    progBar.preferredSize.width = 320;
     try { progWin.show(); } catch (_) {}
 
     // Create temporary clean document with same geometry
@@ -183,7 +208,7 @@ Notes:
     if (!mainStory) {
         try { progWin.close(); } catch (_) {}
         try { tmpDoc.close(SaveOptions.NO); } catch (_) {}
-        alert("Could not create destination story for RTF export.");
+        showAlert("Could not create destination story for RTF export.");
         return;
     }
 
@@ -261,7 +286,7 @@ Notes:
     try {
         mainStory.exportFile(ExportFormat.RTF, outFile);
     } catch (expErr) {
-        alert("RTF export failed: " + expErr);
+        showAlert("RTF export failed: " + expErr);
         try { tmpDoc.close(SaveOptions.NO); } catch (_) {}
         try { progWin.close(); } catch (_) {}
         return;
@@ -271,11 +296,11 @@ Notes:
     try { tmpDoc.close(SaveOptions.NO); } catch (_) {}
     try { progWin.close(); } catch (_) {}
 
-    alert("Plain RTF exported successfully to:\n" + outFile.fsName);
+    showAlert("Plain RTF exported successfully to:\n" + outFile.fsName);
             } catch (err) {
                 try { if (tmpDoc && tmpDoc.isValid) tmpDoc.close(SaveOptions.NO); } catch (_) {}
                 try { if (progWin) progWin.close(); } catch (_) {}
-                alert("Plain RTF export failed: " + err);
+                showAlert("Plain RTF export failed: " + err);
             } finally {
                 try { sp.enableRedraw = __prevRedraw; } catch (_) {}
             }
