@@ -1,6 +1,50 @@
 # IDE and OS junk
 .idea/
+.vscode/
 .DS_Store
+Thumbs.db
+Desktop.ini
+
+# Node dependencies
+node_modules/
+
+# Logs
+logs
+*.log
+*.log.*
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Diagnostic reports (https://nodejs.org/api/report.html)
+report.*.json
+
+# Runtime data / PIDs
+pids
+*.pid
+*.pid.lock
+
+# Caches and temp
+.eslintcache
+.npm/
+.cache/
+.tmp/
+tmp/
+temp/
+.pnpm-debug.log*
+
+# Coverage and build output
+coverage/
+.nyc_output/
+dist/
+build/
+out/
+
+# Environment files
+.env
+.env.*
+!.env.example
 
 # Ignore local shortcut aliases/folders
 /Aliases/
