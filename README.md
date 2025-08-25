@@ -32,12 +32,13 @@ Note for contributors and AI agents:
 - Docs/ — Documentation and references (except this main README)
   - Docs/README.md — Documentation index
   - Docs/ScriptUsage/Export/BulkPDFGenerator.md — "Nekudos" and "Variants" logic, prerequisites, and usage
-  - Docs/ScriptUsage/Export/BulkVariantPDFReverse.md — Batch variant PDF export with reversed page order
+  - Docs/ScriptUsage/Export/BulkPDFReverse.md — Batch variant PDF export with reversed page order
   - Docs/ScriptUsage/Export/ExportPDF.md — Advanced PDF export with security, interactivity, and page ordering options
   - Docs/ScriptUsage/Export/ExportPlainRTF.md — Plain text RTF export with format removal and page structure preservation
   - Docs/ScriptUsage/Utilities/ChangeNekuda.md — Catalog and usage of niqqud transformer scripts
   - Docs/ScriptUsage/Cleanup/CharacterCleanup.md — Hebrew text normalization with multiple cleanup operations
   - Docs/ScriptUsage/Cleanup/RemoveNumericPrefixes.md — Find and remove numeric prefixes at paragraph beginnings
+  - Docs/ScriptUsage/Cleanup/ObjectPreflight.md — Detect frames off their Object Style's enforced X/Y; includes reverse mode to find styles without absolute X/Y
   - Docs/ScriptUsage/Cleanup/ReplaceObject.md — Move items between layers or merge master spreads
   - Docs/ScriptUsage/Cleanup/UnusedStylesManager.md — Find and delete unused styles across all categories
   - Docs/Engineering/CodeStandards.md — Engineering best practices for scripting
@@ -52,7 +53,7 @@ InDesign (JSX): place scripts into your Scripts Panel folder and restart InDesig
 
 ### Export Scripts
 - **ExportPDF.jsx** — Export Normal and/or Reversed PDFs using a chosen preset. Features: optional first-page removal, security settings, hyperlinks/bookmarks toggles, viewer preferences, and progress feedback. Non-destructive. See Docs/ScriptUsage/Export/ExportPDF.md for details.
-- **BulkPDFReverse.jsx** — Batch export reversed-variant PDFs across multiple documents using a chosen preset. Designed for folder-based processing workflows. See Docs/ScriptUsage/Export/BulkVariantPDFReverse.md for details.
+- **BulkPDFReverse.jsx** — Batch export reversed-variant PDFs across multiple documents using a chosen preset. Designed for folder-based processing workflows. See Docs/ScriptUsage/Export/BulkPDFReverse.md for details.
 - **ExportPlainRTF.jsx** — Export text-only RTF with all formatting removed. Preserves page breaks, includes section-aware page numbering, and center-aligns text. See Docs/ScriptUsage/Export/ExportPlainRTF.md for details.
 - **BulkPDFGenerator.jsx** *(Not Maintained)* — Advanced PDF generation with "Nekudos" and "Variants" logic. See Docs/ScriptUsage/Export/BulkPDFGenerator.md for details.
 
@@ -64,6 +65,7 @@ InDesign (JSX): place scripts into your Scripts Panel folder and restart InDesig
 ### Cleanup Scripts
 - **CharacterCleanup.jsx** — Multi-select Hebrew text cleanup: normalize presentation forms, fix dagesh order, remove double spaces, and trim trailing paragraph marks. Includes scope selection. See Docs/ScriptUsage/Cleanup/CharacterCleanup.md for details.
 - **RemoveNumericPrefixes.jsx** — Find and remove numeric prefixes at paragraph start (e.g., "1. ", "2. "). Shows per-page counts with confirmation dialog. See Docs/ScriptUsage/Cleanup/RemoveNumericPrefixes.md for details.
+- **ObjectPreflight.jsx** — Find frames whose position is off from their Object Style's enforced page-relative X/Y, with a reverse mode to list styles that don't enforce absolute X/Y. Includes Go To and Fix actions. See Docs/ScriptUsage/Cleanup/ObjectPreflight.md for details.
 - **ReplaceObject.jsx** — Move items between layers or merge master spreads with single dialog. Options for master items, guides, and locked item handling. See Docs/ScriptUsage/Cleanup/ReplaceObject.md for details.
 - **UnusedStylesManager.jsx** — Find and delete unused styles (paragraph, character, object, table, cell). Robust deletion with replacement styles and mode selection. See Docs/ScriptUsage/Cleanup/UnusedStylesManager.md for details.
 

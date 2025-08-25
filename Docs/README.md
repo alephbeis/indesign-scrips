@@ -5,8 +5,21 @@ This folder contains all repository documentation, organized by topic. The main 
 Contents
 
 - ScriptUsage
-  - BulkPDFGenerator.md — Feature overview, Nekudos and Variants logic, prerequisites, and usage.
-  - ChangeNekuda.md — Catalog of niqqud conversion scripts with details per conversion and usage.
+  - Export
+    - ExportPDF.md — Advanced PDF export with security, interactivity, and page ordering options.
+    - ExportPlainRTF.md — Plain text RTF export with formatting removed and page structure preserved.
+    - BulkPDFReverse.md — Batch reversed-order PDF export across multiple documents with preset control.
+    - BulkPDFGenerator.md — Feature overview, Nekudos and Variants logic, prerequisites, and usage. (Not Maintained)
+  - Utilities
+    - ChangeNekuda.md — Catalog of niqqud conversion scripts with details per conversion and usage.
+    - DeleteHebrewMarks.md — Remove Hebrew marks with options (Nikud, Teamim, Meteg) and reporting.
+    - SelectText.md — Select all text from cursor position to story end.
+  - Cleanup
+    - CharacterCleanup.md — Hebrew text normalization and cleanup operations.
+    - RemoveNumericPrefixes.md — Remove numeric prefixes at paragraph starts.
+    - ObjectPreflight.md — Detect frames off their Object Style's enforced X/Y; includes reverse mode to find styles without absolute X/Y.
+    - ReplaceObject.md — Move items between layers or merge master spreads.
+    - UnusedStylesManager.md — Find and delete unused paragraph/character/object/table/cell styles.
 - Engineering
   - CodeStandards.md — Engineering code standards, safety patterns, and performance guidelines.
   - DialogUXConventions.md — Dialog UI/UX conventions for scripts (layout, scope, buttons).
