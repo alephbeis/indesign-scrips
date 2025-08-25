@@ -590,14 +590,14 @@ function setGREPPrefs(){
 	// Clear and set GREP Prefs
 	app.findGrepPreferences = app.changeGrepPreferences = null;
 	with (app.findChangeGrepOptions){
-		if (app.findChangeGrepOptions.hasOwnProperty("includeFootnotes")) includeFootnotes = true;
-		if (app.findChangeGrepOptions.hasOwnProperty("includeHiddenLayers")) includeHiddenLayers = true;
-		if (app.findChangeGrepOptions.hasOwnProperty("includeLockedLayersForFind")) includeLockedLayersForFind = true;
-		if (app.findChangeGrepOptions.hasOwnProperty("includeLockedStoriesForFind")) includeLockedStoriesForFind = true;
-		if (app.findChangeGrepOptions.hasOwnProperty("includeMasterPages")) includeMasterPages = true;
-		if (app.findChangeGrepOptions.hasOwnProperty("kanaSensitive")) kanaSensitive = false;
-		if (app.findChangeGrepOptions.hasOwnProperty("searchBackwards")) searchBackwards = false;
-		if (app.findChangeGrepOptions.hasOwnProperty("widthSensitive")) widthSensitive = true;
+		if (Object.prototype.hasOwnProperty.call(app.findChangeGrepOptions, "includeFootnotes")) includeFootnotes = true;
+		if (Object.prototype.hasOwnProperty.call(app.findChangeGrepOptions, "includeHiddenLayers")) includeHiddenLayers = true;
+		if (Object.prototype.hasOwnProperty.call(app.findChangeGrepOptions, "includeLockedLayersForFind")) includeLockedLayersForFind = true;
+		if (Object.prototype.hasOwnProperty.call(app.findChangeGrepOptions, "includeLockedStoriesForFind")) includeLockedStoriesForFind = true;
+		if (Object.prototype.hasOwnProperty.call(app.findChangeGrepOptions, "includeMasterPages")) includeMasterPages = true;
+		if (Object.prototype.hasOwnProperty.call(app.findChangeGrepOptions, "kanaSensitive")) kanaSensitive = false;
+		if (Object.prototype.hasOwnProperty.call(app.findChangeGrepOptions, "searchBackwards")) searchBackwards = false;
+		if (Object.prototype.hasOwnProperty.call(app.findChangeGrepOptions, "widthSensitive")) widthSensitive = true;
 	}
 }
 
@@ -618,7 +618,7 @@ function tidyFile(){
 	}
 	var nikkud = "ְֱֲֳִֵֶַָֹֻּׁׂ";
 	app.findGrepPreferences = app.changeGrepPreferences = NothingEnum.nothing;
-	app.findGrepPreferences.findWhat = "["+nikkud+"]"+"["+nikkud+"]+";
+	app.findGrepPreferences.findWhat = "["+nikkud+"]["+nikkud+"]+";
 	var myFinds  = nk.doc.findGrep();
 	var myFindsLength = myFinds.length;
 	for (a=0; a<2; a++){

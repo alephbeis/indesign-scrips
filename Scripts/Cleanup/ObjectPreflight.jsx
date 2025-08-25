@@ -117,7 +117,7 @@
             var cache = {};
             function getExpectedXY(style, page){
                 var k = key(style,page);
-                if (cache.hasOwnProperty(k)) return cache[k];
+                if (Object.prototype.hasOwnProperty.call(cache, k)) return cache[k];
                 cache[k] = expectedXY(style,page); // may be null
                 return cache[k];
             }
@@ -230,7 +230,7 @@
             btnRow.orientation = "row";
             btnRow.alignment = "right";
 
-            var btnClose  = btnRow.add("button", undefined, "Close", { name: "ok" });
+            var _btnClose  = btnRow.add("button", undefined, "Close", { name: "ok" });
             var btnFix     = btnRow.add("button", undefined, "Fix");
             var btnFixNext = btnRow.add("button", undefined, "Fix and Next");
             var btnFixAll  = btnRow.add("button", undefined, "Fix All");

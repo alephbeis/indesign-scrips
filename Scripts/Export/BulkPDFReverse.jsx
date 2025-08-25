@@ -73,7 +73,7 @@ Usage:
     }
 
     function sanitizeFilenamePart(s) {
-        return String(s || "").replace(/[\\\/:*?"<>|]/g, "_");
+        return String(s || "").replace(/[\\/:*?"<>|]/g, "_");
     }
 
     function getPdfSubfolder(d) {

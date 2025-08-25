@@ -110,7 +110,7 @@
             var n = nekudos[i];
             var label = n.name + ' (' + n.hebrew + ')';
             var rb = fromListCol.add('radiobutton', undefined, label);
-            rb.enabled = presentMap.hasOwnProperty(n.name) && presentMap[n.name] > 0;
+            rb.enabled = Object.prototype.hasOwnProperty.call(presentMap, n.name) && presentMap[n.name] > 0;
             rb._index = i; // store index into nekudos array
             fromRadios.push(rb);
             if (firstEnabledFromIndex === -1 && rb.enabled) firstEnabledFromIndex = fromRadios.length - 1;

@@ -238,7 +238,7 @@ Usage:
         }
     }
 
-    var baseName = baseNameEdit.text.replace(/[\/:*?"<>|]/g, "_");
+    var baseName = baseNameEdit.text.replace(/[/:*?"<>|]/g, "_");
     if (!baseName || baseName.replace(/\s+/g, "").length === 0) {
         notify("Please provide a valid base filename.");
         return;

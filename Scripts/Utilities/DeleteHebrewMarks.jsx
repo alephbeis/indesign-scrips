@@ -367,3 +367,4 @@ function deleteMesegAll(silent, targets) {
     if (!silent) { notifyDeletionResult("Meteg (all) deletion", foundAny); }
     return foundAny;
 }
+

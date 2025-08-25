@@ -65,7 +65,7 @@
 
             // Flatten & sort by page order; "(no page)" goes to the end
             var items = [];
-            for (var k in buckets) if (buckets.hasOwnProperty(k)) items.push(buckets[k]);
+            for (var k in buckets) if (Object.prototype.hasOwnProperty.call(buckets, k)) items.push(buckets[k]);
             items.sort(function(a, b){
                 var ai = (a.index < 0) ? 1e9 : a.index;
                 var bi = (b.index < 0) ? 1e9 : b.index;
