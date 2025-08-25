@@ -241,3 +241,14 @@ function normalizeWhitespace(doc = app.activeDocument) {
 ---
 
 **TL;DR:** Prefer UXP JS with explicit imports, wrap scripts in a single undo, suppress redraw during heavy work, reset prefs before/after, resolve object specifiers once, and always restore app state in `finally`. These practices align with Adobe’s current scripting model and the community’s hard-won lessons.
+
+
+---
+
+## 16) Line Ending Standards
+
+To ensure cross-platform compatibility, all files in this repository must use LF (Line Feed) line endings. Follow these steps:
+- Set your Git configuration globally with `git config --global core.autocrlf input` to normalize line endings on commit.
+- Optionally, add a `.gitattributes` file in the repository root with `* text=auto` to enforce this setting at the project level.
+- Use an IDE or editor (e.g., WebStorm, VS Code) configured to use LF endings (e.g., in WebStorm: Settings > Editor > Code Style > Line Separator > set to Unix (\n)).
+- Avoid committing files with CRLF (Carriage Return + Line Feed) endings to prevent warnings and potential conflicts.
