@@ -12,19 +12,16 @@ Pre-submit checklist
      - Validate object specifiers and check `.isValid`.
      - Explicitly set and restore measurement units.
      - Prefer early returns, avoid magic numbers, use clear naming.
-2) Read the AI agent instructions overview
-   - Location: Docs/AI-Agent-Instructions.md
-   - Explains scope, required practices, and links to standards.
-3) Run the linter and fix reported issues
+2) Run the linter and fix reported issues
    - First-time setup: `npm ci`
    - Lint command: `npm run lint`
    - All lint errors must be resolved before submitting. Do not disable rules to bypass issues; update code to comply.
    - Aim to address warnings where practical.
-4) Ensure UI changes conform to UX conventions
+3) Ensure UI changes conform to UX conventions
    - For any dialogs, panels, or alerts: mirror existing labels, layout, default actions, and keyboard shortcuts used in this repo.
-5) Keep changes minimal and focused
+4) Keep changes minimal and focused
    - Modify only what is necessary to satisfy the issue. Preserve existing behavior unless explicitly required to change.
-6) Sanity-check behavior manually when applicable
+5) Sanity-check behavior manually when applicable
    - If the change affects runtime behavior, perform a quick manual verification to catch regressions.
 
 Repository pointers
@@ -45,8 +42,10 @@ Use this as a final gate before submitting any change.
 
 A) Linting & Formatting
 - Run `npm ci` (first time) and `npm run lint`. Ensure there are 0 lint errors.
+- Run `npm run format` to apply Prettier formatting to all files before submitting.
 - Address warnings where practical. Do not disable rules to bypass issues.
 - Ensure files end with a newline, no trailing spaces, and spacing aligns with project standards.
+- Prettier configuration enforces consistent formatting - all code must pass `npm run format:check`.
 
 B) UI/UX Compliance
 - Dialog type: Use InDesign dialogs (not system dialogs) unless absolutely necessary.

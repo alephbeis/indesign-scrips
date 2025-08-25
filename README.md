@@ -26,9 +26,10 @@ Note for contributors and AI agents:
 
 ## Repository layout
 - Scripts/ — All runnable scripts
-  - Scripts/Export/ — Export scripts (ExportPDF, ExportPlainRTF, BulkPDFGenerator, BulkVariantPDFReverse)
+  - Scripts/Export/ — Export scripts (ExportPDF, ExportPlainRTF, BulkPDFGenerator, BulkPDFReverse)
   - Scripts/Utilities/ — Common utilities (ChangeNekuda, DeleteHebrewMarks, SelectText)
   - Scripts/Cleanup/ — Document cleanup utilities (CharacterCleanup, RemoveNumericPrefixes, ReplaceObject, UnusedStylesManager)
+  - Scripts/Shared/ — Shared utility libraries (InDesignUtils.jsx provides UI helpers, error handling, object utilities, layer management, and preferences management)
 - Docs/ — Documentation and references (except this main README)
   - Docs/README.md — Documentation index
   - Docs/ScriptUsage/Export/BulkPDFGenerator.md — "Nekudos" and "Variants" logic, prerequisites, and usage
@@ -49,10 +50,40 @@ InDesign (JSX): place scripts into your Scripts Panel folder and restart InDesig
 - Windows: %AppData%/Adobe/InDesign/[version]/[language]/Scripts/Scripts Panel/
 - macOS: ~/Library/Preferences/Adobe InDesign/[version]/[language]/Scripts/Scripts Panel/
 
+## Development Setup
+For contributors working with the codebase:
+
+### Prerequisites
+```bash
+npm ci  # Install development dependencies
+```
+
+### Code Formatting
+This project uses Prettier for consistent code formatting across all JavaScript/JSX files:
+
+```bash
+npm run format        # Format all files
+npm run format:check  # Check formatting without making changes
+```
+
+### Linting
+ESLint is configured with separate rules for ExtendScript (.jsx) and UXP (.js) environments:
+
+```bash
+npm run lint  # Run ESLint on all Scripts/**/*.jsx files
+```
+
+### Code Standards
+- All code must pass ESLint validation before submission
+- Prettier formatting is enforced - run `npm run format` before committing
+- Line endings are enforced as LF via .gitattributes
+- See `Docs/Engineering/CodeStandards.md` for detailed coding conventions
+
 ## Available scripts
 
 ### Export Scripts
 - **ExportPDF.jsx** — Export Normal and/or Reversed PDFs using a chosen preset. Features: optional first-page removal, security settings, hyperlinks/bookmarks toggles, viewer preferences, and progress feedback. Non-destructive. See Docs/ScriptUsage/Export/ExportPDF.md for details.
+- **ExportPDF.uxp.js** — UXP-based variant of ExportPDF with core features (Normal/Reversed order, optional skip-first-two, preset selection). Configure options via the CONFIG object at the top of the file. See Docs/ScriptUsage/Export/ExportPDF.md → UXP Version.
 - **BulkPDFReverse.jsx** — Batch export reversed-variant PDFs across multiple documents using a chosen preset. Designed for folder-based processing workflows. See Docs/ScriptUsage/Export/BulkPDFReverse.md for details.
 - **ExportPlainRTF.jsx** — Export text-only RTF with all formatting removed. Preserves page breaks, includes section-aware page numbering, and center-aligns text. See Docs/ScriptUsage/Export/ExportPlainRTF.md for details.
 - **BulkPDFGenerator.jsx** *(Not Maintained)* — Advanced PDF generation with "Nekudos" and "Variants" logic. See Docs/ScriptUsage/Export/BulkPDFGenerator.md for details.

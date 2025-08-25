@@ -20,9 +20,14 @@ Contents
     - ObjectPreflight.md — Detect frames off their Object Style's enforced X/Y; includes reverse mode to find styles without absolute X/Y.
     - ReplaceObject.md — Move items between layers or merge master spreads.
     - UnusedStylesManager.md — Find and delete unused paragraph/character/object/table/cell styles.
+  - Components
+    - ScopeChooser.md — Reusable dialog component for scope selection in scripts.
 - Engineering
   - CodeStandards.md — Engineering code standards, safety patterns, and performance guidelines.
   - DialogUXConventions.md — Dialog UI/UX conventions for scripts (layout, scope, buttons).
+  - SharedUtilities.md — Documentation for shared utility functions and InDesign helper methods.
+  - ScopeImplementation.md — Technical implementation details for scope selection functionality.
+  - ImprovementBacklog.md — Engineering improvement backlog and technical debt tracking.
 
 Notes
 
