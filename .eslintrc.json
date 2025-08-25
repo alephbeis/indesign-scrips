@@ -1,12 +1,7 @@
 {
   "root": true,
-  "env": {
-    "es6": false
-  },
-  "parserOptions": {
-    "ecmaVersion": 5,
-    "sourceType": "script"
-  },
+  "env": { "es6": false },
+  "parserOptions": { "ecmaVersion": 5, "sourceType": "script" },
   "globals": {
     "app": "readonly",
     "$": "readonly",
@@ -30,6 +25,11 @@
     "SaveOptions": "readonly",
     "SpecialCharacters": "readonly",
     "OverrideType": "readonly",
+    "BridgeTalk": "readonly",
+    "ExternalObject": "readonly",
+    "Socket": "readonly",
+    "XML": "readonly",
+    "XMLList": "readonly",
     "alert": "writable"
   },
   "rules": {
@@ -41,14 +41,19 @@
     "eqeqeq": ["warn", "allow-null"],
     "no-extra-semi": "warn",
     "no-trailing-spaces": "warn",
-    "consistent-return": "off"
+    "consistent-return": "off",
+    "no-var": "off",
+    "prefer-const": "off",
+    "prefer-let": "off"
   },
   "overrides": [
     {
+      "files": ["Scripts/**/*.jsx"],
+      "parserOptions": { "ecmaVersion": 3, "sourceType": "script" }
+    },
+    {
       "files": ["Scripts/Export/BulkPDFGenerator.jsx"],
-      "rules": {
-        "no-undef": "off"
-      }
+      "rules": { "no-undef": "off" }
     }
   ]
 }
