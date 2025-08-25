@@ -1,7 +1,7 @@
 /**
  * Change Nekuda
  * Provides flexible interface to change any Hebrew vowel mark (nekuda) to any other
- * 
+ *
  * Features:
  * - Change From: Lists all Nekudos plus Shin and Sin dots
  * - Change To: Lists all Nekudos plus Shin and Sin dots
@@ -11,13 +11,32 @@
 // Main entry point
 (function() {
     'use strict';
-    
+
+    // InDesign-style message dialog helper and alert override
+    function __showMessage__(title, message) {
+        var w = new Window('dialog', title || 'Message');
+        w.orientation = 'column';
+        w.margins = 16;
+        w.spacing = 12;
+        var msg = w.add('statictext', undefined, message, { multiline: true });
+        msg.characters = 60;
+        var row = w.add('group');
+        row.alignment = 'right';
+        row.spacing = 8;
+        var okBtn = row.add('button', undefined, 'OK', { name: 'ok' });
+        w.defaultElement = okBtn;
+        w.cancelElement = okBtn;
+        w.center();
+        w.show();
+    }
+    var alert = function(message) { __showMessage__('Change Nekuda', String(message)); };
+
     // Check if document is available
     if (!app.documents.length) {
         alert("Please open a document before running this script.");
         return;
     }
-    
+
     // Define all Nekudos with their Unicode characters and Hebrew names
     // Ordered according to requirements: Kamatz, Pasach, Tzeirei, Segol, Sheva, etc.
     var nekudos = [
@@ -38,10 +57,10 @@
         { name: "Shin Dot", hebrew: "נקודת שין", unicode: "\\x{05C1}", character: "\u05C1" },
         { name: "Sin Dot", hebrew: "נקודת שין שמאלית", unicode: "\\x{05C2}", character: "\u05C2" }
     ];
-    
+
     // Show main dialog
     showChangeNekudaDialog();
-    
+
     /**
      * Show the main dialog with Change From and Change To options
      */
@@ -49,42 +68,42 @@
         var dialog = new Window('dialog', 'Change Nekuda');
         dialog.orientation = 'column';
         dialog.margins = 16;
-        dialog.spacing = 10;
+        dialog.spacing = 12;
         dialog.preferredSize.width = 600;
-        
+
         // Scan document for existing nekudos
         var foundNekudos = scanDocumentForNekudos();
-        
+
         // Build a presence map for quick lookup (name -> count)
         var presentMap = {};
         for (var _fi = 0; _fi < foundNekudos.length; _fi++) {
             presentMap[foundNekudos[_fi].name] = foundNekudos[_fi].count || 0;
         }
-        
+
         // Main two-column layout
         var mainGroup = dialog.add('group');
         mainGroup.orientation = 'row';
         mainGroup.alignment = 'left';
-        mainGroup.spacing = 10;
-        
+        mainGroup.spacing = 12;
+
         // Left column (smaller) - Change From/To
         var leftColumn = mainGroup.add('group');
         leftColumn.orientation = 'row';
         leftColumn.spacing = 8;
         leftColumn.alignment = 'top';
-        
+
         // Change From section
         var fromPanel = leftColumn.add('panel', undefined, 'Change From');
         fromPanel.orientation = 'column';
         fromPanel.margins = 12;
-        fromPanel.spacing = 6;
+        fromPanel.spacing = 8;
         fromPanel.alignChildren = 'fill';
-        
+
         // Single-column radio list for Change From
         var fromListCol = fromPanel.add('group');
         fromListCol.orientation = 'column';
         fromListCol.alignChildren = 'left';
-        
+
         var fromRadios = [];
         var firstEnabledFromIndex = -1;
         for (var i = 0; i < nekudos.length; i++) {
@@ -108,19 +127,19 @@
         }
         bindExclusive(fromRadios);
         if (firstEnabledFromIndex !== -1) { fromRadios[firstEnabledFromIndex].value = true; }
-        
+
         // Change To section
         var toPanel = leftColumn.add('panel', undefined, 'Change To');
         toPanel.orientation = 'column';
         toPanel.margins = 12;
-        toPanel.spacing = 6;
+        toPanel.spacing = 8;
         toPanel.alignChildren = 'fill';
-        
+
         // Single-column radio list for Change To
         var toListCol = toPanel.add('group');
         toListCol.orientation = 'column';
         toListCol.alignChildren = 'left';
-        
+
         var toRadios = [];
         for (var j = 0; j < nekudos.length; j++) {
             var nt = nekudos[j];
@@ -132,15 +151,15 @@
         }
         bindExclusive(toRadios);
         // Intentionally do not preselect any item for "Change To" per UX requirement
-        
+
         // Right column - Scope panel
         var scopePanel = mainGroup.add('panel', undefined, 'Scope');
         scopePanel.orientation = 'column';
         scopePanel.margins = 12;
-        scopePanel.spacing = 6;
+        scopePanel.spacing = 8;
         scopePanel.alignChildren = 'left';
         scopePanel.alignment = 'top';
-        
+
         var scopeRadios = [];
         // Canonical order: All Documents, Document, Page, Story, Frame, Selected Text
         var scopeOptions = [
@@ -151,14 +170,14 @@
             { text: 'Frame', value: 'frame' },
             { text: 'Selected Text', value: 'selection' }
         ];
-        
+
         for (var k = 0; k < scopeOptions.length; k++) {
             var scopeRadio = scopePanel.add('radiobutton', undefined, scopeOptions[k].text);
             scopeRadio.value = (scopeOptions[k].value === 'doc'); // Select 'Document' by default
             scopeRadio.scopeValue = scopeOptions[k].value;
             scopeRadios.push(scopeRadio);
         }
-        
+
         // Fixed heights so each list fits all 16 items in one column
         try {
             var fixedPanelH = 440; // fits 16 radios comfortably
@@ -169,7 +188,7 @@
             // Window height: panels + margins + buttons area
             dialog.preferredSize.height = 560;
         } catch (_eSizing) {}
-        
+
         // Determine selection context first
         var hasTextFrameSelection = false;
         var inTextContext = false;            // true for any text context, including caret
@@ -204,7 +223,7 @@
                 }
             }
         } catch (e0) {}
-        
+
         // Enablement rules: show but disable if not applicable
         for (var _r = 0; _r < scopeRadios.length; _r++) {
             if (scopeRadios[_r].scopeValue === 'selection') {
@@ -215,9 +234,9 @@
                 scopeRadios[_r].enabled = (inTextContext || hasTextFrameSelection);
             }
         }
-        
+
         // Ensure no disabled option is selected
-        for (var _r = 0; _r < scopeRadios.length; _r++) {
+        for (_r = 0; _r < scopeRadios.length; _r++) {
             if (!scopeRadios[_r].enabled && scopeRadios[_r].value) {
                 scopeRadios[_r].value = false;
                 // ensure Document is active
@@ -226,40 +245,42 @@
                 }
             }
         }
-        
+
         // Action buttons
         var buttonGroup = dialog.add('group');
         buttonGroup.alignment = 'right';
-        buttonGroup.spacing = 10;
-        
-        var cancelButton = buttonGroup.add('button', undefined, 'Cancel');
-        var runButton = buttonGroup.add('button', undefined, 'Run', {name: 'ok'});
-        
+        buttonGroup.spacing = 8;
+
+        var cancelButton = buttonGroup.add('button', undefined, 'Cancel', { name: 'cancel' });
+        var runButton = buttonGroup.add('button', undefined, 'Run', { name: 'ok' });
+        dialog.defaultElement = runButton;
+        dialog.cancelElement = cancelButton;
+
         // Cancel button handler
         cancelButton.onClick = function() {
             dialog.close();
         };
-        
+
         // Run button handler
         runButton.onClick = function() {
             var fromIndex = -1;
             for (var f = 0; f < fromRadios.length; f++) { if (fromRadios[f].value) { fromIndex = fromRadios[f]._index; break; } }
             var toIndex = -1;
             for (var t = 0; t < toRadios.length; t++) { if (toRadios[t].value) { toIndex = toRadios[t]._index; break; } }
-            
+
             if (fromIndex === -1 || toIndex === -1) {
                 alert("Please select both 'Change From' and 'Change To' options.");
                 return;
             }
-            
+
             var fromNekuda = nekudos[fromIndex];
             var toNekuda = nekudos[toIndex];
-            
+
             if (fromNekuda.unicode === toNekuda.unicode) {
                 alert("Source and target Nekudos are the same. No changes would be made.");
                 return;
             }
-            
+
             // Get selected scope
             var selectedScope = 'doc';
             for (var l = 0; l < scopeRadios.length; l++) {
@@ -268,19 +289,19 @@
                     break;
                 }
             }
-            
+
             // Store values and close dialog immediately
             dialog.close(1);
-            
+
             // Execute change after dialog closes
             executeChange(fromNekuda, toNekuda, selectedScope);
         };
-        
+
         // Show dialog
         dialog.center();
         dialog.show();
     }
-    
+
     /**
      * Scan the document to find which Nekudos are actually present
      * @returns {Array} Array of nekuda objects with count information
@@ -288,29 +309,29 @@
     function scanDocumentForNekudos() {
         var foundNekudos = [];
         var doc = app.activeDocument;
-        
+
         // Store original preferences
         var originalPrefs = {
             enableRedraw: app.scriptPreferences.enableRedraw
         };
-        
+
         try {
             app.scriptPreferences.enableRedraw = false;
-            
+
             for (var i = 0; i < nekudos.length; i++) {
                 var nekuda = nekudos[i];
                 var count = 0;
-                
+
                 // Reset preferences
-                app.findGrepPreferences = null;
-                
+                app.findGrepPreferences = NothingEnum.nothing;
+
                 // Set up search for this nekuda
                 app.findGrepPreferences.findWhat = nekuda.unicode;
-                
+
                 // Find all instances
                 var found = doc.findGrep();
                 count = found.length;
-                
+
                 if (count > 0) {
                     foundNekudos.push({
                         name: nekuda.name,
@@ -320,16 +341,16 @@
                         count: count
                     });
                 }
-                
+
                 // Reset preferences
-                app.findGrepPreferences = null;
+                app.findGrepPreferences = NothingEnum.nothing;
             }
-            
+
         } finally {
             app.scriptPreferences.enableRedraw = originalPrefs.enableRedraw;
             app.findGrepPreferences = null;
         }
-        
+
         // Sort by predefined nekudos array order instead of occurrence count
         foundNekudos.sort(function(a, b) {
             var aIndex = -1, bIndex = -1;
@@ -339,14 +360,14 @@
             }
             return aIndex - bIndex;
         });
-        
+
         return foundNekudos;
     }
-    
+
     /**
      * Execute the change operation
      * @param {Object} fromNekuda - Source nekuda object
-     * @param {Object} toNekuda - Target nekuda object  
+     * @param {Object} toNekuda - Target nekuda object
      * @param {string} scope - Scope of the change
      */
     function executeChange(fromNekuda, toNekuda, scope) {
@@ -354,35 +375,35 @@
         var originalPrefs = {
             enableRedraw: app.scriptPreferences.enableRedraw
         };
-        
+
         try {
             // Disable redraw for better performance
             app.scriptPreferences.enableRedraw = false;
-            
+
             // Resolve targets first
             var targets = resolveScopeTargets(scope);
             if (!targets || targets.length === 0) {
                 // Resolver already alerted the user
                 return;
             }
-            
+
             var changesMade = false;
-            
+
             // Wrap in undo group
             app.doScript(function() {
                 changesMade = performChange(fromNekuda, toNekuda, targets);
             }, undefined, undefined, UndoModes.ENTIRE_SCRIPT,
                "Change Nekuda: " + fromNekuda.name + " → " + toNekuda.name);
-            
+
             // Show completion message based on whether changes were made
             if (changesMade) {
-                alert("Change completed successfully!\n\n" + 
+                alert("Change completed successfully!\n\n" +
                       "Changed: " + fromNekuda.name + " → " + toNekuda.name);
             } else {
                 alert("No changes were made.\n\n" +
                       "No instances of " + fromNekuda.name + " were found in the selected scope.");
             }
-            
+
         } catch (error) {
             alert("Error during change operation: " + error.message);
         } finally {
@@ -390,7 +411,7 @@
             app.scriptPreferences.enableRedraw = originalPrefs.enableRedraw;
         }
     }
-    
+
     /**
      * Perform the actual change operation
      * @param {Object} fromNekuda - Source nekuda object
@@ -439,10 +460,10 @@
             // Always reset preferences
             safeReset();
         }
-        
+
         return changesMade;
     }
-    
+
     /**
      * Resolve scope targets based on the selected scope
      * @param {string} scope - The scope type
@@ -479,17 +500,17 @@
                 var frames = page.textFrames ? page.textFrames.everyItem().getElements() : [];
                 for (var i = 0; i < frames.length; i++) {
                     try {
-                        var tf = frames[i];
-                        var lines = null;
-                        try { lines = tf && tf.lines ? tf.lines.everyItem().getElements() : []; } catch (ee0) { lines = []; }
-                        if (lines && lines.length > 0) {
-                            var firstChar = null, lastChar = null;
-                            try { firstChar = lines[0].characters[0]; } catch (ee1) {}
-                            try { var lastLine = lines[lines.length - 1]; lastChar = lastLine.characters[-1]; } catch (ee2) {}
-                            if (firstChar && lastChar) {
-                                var range = null;
-                                try { range = tf.parentStory.texts.itemByRange(firstChar, lastChar); } catch (ee3) {}
-                                if (range && range.isValid) tgts.push(range);
+                        var pageTf = frames[i];
+                        var pageLines = null;
+                        try { pageLines = pageTf && pageTf.lines ? pageTf.lines.everyItem().getElements() : []; } catch (ee0) { pageLines = []; }
+                        if (pageLines && pageLines.length > 0) {
+                            var pageFirstChar = null, pageLastChar = null;
+                            try { pageFirstChar = pageLines[0].characters[0]; } catch (ee1) {}
+                            try { var pageLastLine = pageLines[pageLines.length - 1]; pageLastChar = pageLastLine.characters[-1]; } catch (ee2) {}
+                            if (pageFirstChar && pageLastChar) {
+                                var pageRange = null;
+                                try { pageRange = pageTf.parentStory.texts.itemByRange(pageFirstChar, pageLastChar); } catch (ee3) {}
+                                if (pageRange && pageRange.isValid) tgts.push(pageRange);
                             }
                         }
                     } catch (e5) {}
@@ -525,8 +546,8 @@
         }
         if (scope === "selection") {
             if (!app.selection || app.selection.length === 0) { alert("Make a text selection first."); return []; }
-            for (var s = 0; s < app.selection.length; s++) {
-                var item = app.selection[s];
+            for (var si = 0; si < app.selection.length; si++) {
+                var item = app.selection[si];
                 var txt = null;
                 try { if (item && item.texts && item.texts.length > 0) txt = item.texts[0]; } catch (e8) {}
                 // Do not escalate to parentStory in Selection scope; require actual text
@@ -539,5 +560,5 @@
         try { var dflt = app.activeDocument; if (dflt && dflt.isValid) tgts.push(dflt); } catch (e10) {}
         return tgts;
     }
-    
+
 })();

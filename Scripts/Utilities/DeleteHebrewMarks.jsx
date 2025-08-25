@@ -1,12 +1,31 @@
 // Hebrew Marks Deletion Script
 // Combines functionality to delete Nikud, Teamim, Meseg, or combination
 
+// InDesign-style message dialog helper and alert override
+function __showMessage__(title, message) {
+    var w = new Window('dialog', title || 'Message');
+    w.orientation = 'column';
+    w.margins = 16;
+    w.spacing = 12;
+    var msg = w.add('statictext', undefined, message, { multiline: true });
+    msg.characters = 60;
+    var row = w.add('group');
+    row.alignment = 'right';
+    row.spacing = 8;
+    var okBtn = row.add('button', undefined, 'OK', { name: 'ok' });
+    w.defaultElement = okBtn;
+    w.cancelElement = okBtn;
+    w.center();
+    w.show();
+}
+function showAlert(message) { __showMessage__('Hebrew Marks Deletion', String(message)); }
+
 // Create dialog with radio buttons for user selection
 function createDialog() {
     var dialog = new Window("dialog", "Hebrew Marks Deletion");
     dialog.orientation = "column";
     dialog.alignChildren = "left";
-    dialog.spacing = 10;
+    dialog.spacing = 12;
     dialog.margins = 16;
 
     // Title
@@ -24,7 +43,7 @@ function createDialog() {
     radioGroup.orientation = "column";
     radioGroup.alignChildren = "left";
     radioGroup.spacing = 8;
-    radioGroup.margins = 16;
+    radioGroup.margins = 12;
 
     var nikudRadio = radioGroup.add("radiobutton", undefined, "Nikud");
     var teamimRadio = radioGroup.add("radiobutton", undefined, "Teamim");
@@ -40,6 +59,7 @@ function createDialog() {
     scopePanel.orientation = "column";
     scopePanel.alignChildren = "left";
     scopePanel.margins = 12;
+    scopePanel.spacing = 8;
 
     // Scope options with conditional availability
     // Determine selection context first
@@ -101,8 +121,11 @@ function createDialog() {
     // Bottom buttons (right-aligned): Cancel then Run
     var buttonGroup = dialog.add("group");
     buttonGroup.alignment = "right";
-    var cancelButton = buttonGroup.add("button", undefined, "Cancel");
-    var runButton = buttonGroup.add("button", undefined, "Run", {name: "ok"});
+    buttonGroup.spacing = 8;
+    var cancelButton = buttonGroup.add("button", undefined, "Cancel", { name: "cancel" });
+    var runButton = buttonGroup.add("button", undefined, "Run", { name: "ok" });
+    dialog.defaultElement = runButton;
+    dialog.cancelElement = cancelButton;
 
     var chosen = null;
     var scopeChoice = null;
@@ -133,7 +156,7 @@ function createDialog() {
 
 // Guard: ensure document context exists
 if (!app || !app.documents || app.documents.length === 0) {
-    alert("Open a document before running Hebrew Marks Deletion.");
+    showAlert("Open a document before running Hebrew Marks Deletion.");
 } else {
     // Get user selection and scope in a single dialog, then execute
     var userChoice = createDialog();
@@ -163,9 +186,9 @@ if (!app || !app.documents || app.documents.length === 0) {
                             var foundMeseg = deleteMesegAll(true, targets);
                             var foundAny = foundNikud || foundTeamim || foundMeseg;
                             if (foundAny) {
-                                alert("All Hebrew marks deletion completed!");
+                                showAlert("All Hebrew marks deletion completed!");
                             } else {
-                                alert("No Hebrew marks found to delete.");
+                                showAlert("No Hebrew marks found to delete.");
                             }
                             break;
                     }
@@ -178,12 +201,12 @@ if (!app || !app.documents || app.documents.length === 0) {
 function resolveScopeTargets(scope) {
     var tgts = [];
     if (scope === "allDocs") {
-        if (!app.documents || app.documents.length === 0) { alert("No open documents."); return []; }
+        if (!app.documents || app.documents.length === 0) { showAlert("No open documents."); return []; }
         for (var d = 0; d < app.documents.length; d++) { try { if (app.documents[d].isValid) tgts.push(app.documents[d]); } catch (e) {} }
         return tgts;
     }
     if (scope === "doc") {
-        try { var doc = app.activeDocument; if (doc && doc.isValid) tgts.push(doc); else alert("No active document."); } catch (e2) { alert("No active document."); }
+        try { var doc = app.activeDocument; if (doc && doc.isValid) tgts.push(doc); else showAlert("No active document."); } catch (e2) { showAlert("No active document."); }
         return tgts;
     }
     if (scope === "story") {
@@ -195,13 +218,13 @@ function resolveScopeTargets(scope) {
                 if (!story) { try { if (sel && sel.parentStory && sel.parentStory.isValid) story = sel.parentStory; } catch (ex2) {} }
             }
         } catch (e3) {}
-        if (!story) { alert("Select some text or a text frame to target its story."); return []; }
+        if (!story) { showAlert("Select some text or a text frame to target its story."); return []; }
         tgts.push(story); return tgts;
     }
     if (scope === "page") {
         var page = null;
         try { if (app.layoutWindows && app.layoutWindows.length > 0) page = app.layoutWindows[0].activePage; else if (app.activeWindow) page = app.activeWindow.activePage; } catch (e4) {}
-        if (!page) { alert("No active page. Open a layout window and try again."); return []; }
+        if (!page) { showAlert("No active page. Open a layout window and try again."); return []; }
         try {
             var frames = page.textFrames ? page.textFrames.everyItem().getElements() : [];
             for (var i = 0; i < frames.length; i++) {
@@ -222,44 +245,44 @@ function resolveScopeTargets(scope) {
                 } catch (e5) {}
             }
         } catch (e7) {}
-        if (tgts.length === 0) alert("No text found on the active page.");
+        if (tgts.length === 0) showAlert("No text found on the active page.");
         return tgts;
     }
     if (scope === "frame") {
-        if (!app.selection || app.selection.length === 0) { alert("Select one or more frames."); return []; }
-        for (var s = 0; s < app.selection.length; s++) {
-            var it = app.selection[s];
-            var tf = null;
-            try { var ctor = String(it && it.constructor && it.constructor.name); if (ctor === "TextFrame") tf = it; } catch (ef) {}
-            if (!tf) { try { if (it && it.texts && it.texts.length > 0 && it.lines) tf = it; } catch (ef2) {} }
-            if (tf) {
-                var lines = null;
-                try { lines = tf.lines ? tf.lines.everyItem().getElements() : []; } catch (ee0) { lines = []; }
-                if (lines && lines.length > 0) {
-                    var firstChar = null, lastChar = null;
-                    try { firstChar = lines[0].characters[0]; } catch (ee1) {}
-                    try { var lastLine = lines[lines.length - 1]; lastChar = lastLine.characters[-1]; } catch (ee2) {}
-                    if (firstChar && lastChar) {
-                        var range = null;
-                        try { range = tf.parentStory.texts.itemByRange(firstChar, lastChar); } catch (ee3) {}
-                        if (range && range.isValid) tgts.push(range);
+        if (!app.selection || app.selection.length === 0) { showAlert("Select one or more frames."); return []; }
+        for (var sFrame = 0; sFrame < app.selection.length; sFrame++) {
+            var it = app.selection[sFrame];
+            var tf2 = null;
+            try { var ctor = String(it && it.constructor && it.constructor.name); if (ctor === "TextFrame") tf2 = it; } catch (ef) {}
+            if (!tf2) { try { if (it && it.texts && it.texts.length > 0 && it.lines) tf2 = it; } catch (ef2) {} }
+            if (tf2) {
+                var lines2 = null;
+                try { lines2 = tf2.lines ? tf2.lines.everyItem().getElements() : []; } catch (ee0) { lines2 = []; }
+                if (lines2 && lines2.length > 0) {
+                    var firstChar2 = null, lastChar2 = null;
+                    try { firstChar2 = lines2[0].characters[0]; } catch (ee1) {}
+                    try { var lastLine2 = lines2[lines2.length - 1]; lastChar2 = lastLine2.characters[-1]; } catch (ee2) {}
+                    if (firstChar2 && lastChar2) {
+                        var range2 = null;
+                        try { range2 = tf2.parentStory.texts.itemByRange(firstChar2, lastChar2); } catch (ee3) {}
+                        if (range2 && range2.isValid) tgts.push(range2);
                     }
                 }
             }
         }
-        if (tgts.length === 0) alert("No text found in the selected frame(s).");
+        if (tgts.length === 0) showAlert("No text found in the selected frame(s).");
         return tgts;
     }
     if (scope === "selection") {
-        if (!app.selection || app.selection.length === 0) { alert("Make a text selection first."); return []; }
-        for (var s = 0; s < app.selection.length; s++) {
-            var item = app.selection[s];
+        if (!app.selection || app.selection.length === 0) { showAlert("Make a text selection first."); return []; }
+        for (var sSel = 0; sSel < app.selection.length; sSel++) {
+            var item = app.selection[sSel];
             var txt = null;
             try { if (item && item.texts && item.texts.length > 0) txt = item.texts[0]; } catch (e8) {}
             // Do not escalate to parentStory in Selection scope; require actual text
             if (txt && txt.isValid) tgts.push(txt);
         }
-        if (tgts.length === 0) alert("The selection does not contain editable text.");
+        if (tgts.length === 0) showAlert("The selection does not contain editable text.");
         return tgts;
     }
     // fallback
@@ -272,23 +295,12 @@ function safeReset() {
     try { app.changeGrepPreferences = null; } catch (e2) {}
 }
 
-function _getDocFrom(obj) {
-    // Walk parent chain to find Document
-    try {
-        var p = obj;
-        while (p && p.parent) {
-            p = p.parent;
-            try { if (p && p.constructor && String(p.constructor.name) === "Document") return p; } catch (e) {}
-        }
-    } catch (e2) {}
-    return null;
-}
 
 
 function changeAcrossTargets(findPattern, replaceText, targets) {
     // Correct approach: changeGrep returns collections, check if any have length > 0
     var foundAny = false;
-    
+
     for (var i = 0; i < targets.length; i++) {
         var t = targets[i];
         try {
@@ -296,31 +308,31 @@ function changeAcrossTargets(findPattern, replaceText, targets) {
             safeReset();
             app.findGrepPreferences.findWhat = findPattern;
             app.changeGrepPreferences.changeTo = replaceText;
-            try { 
-                var result = t.changeGrep(); 
+            try {
+                var result = t.changeGrep();
                 // changeGrep returns a collection - check if it has items
                 if (result && result.length && result.length > 0) {
                     foundAny = true;
                 }
-            } catch (ce) { 
+            } catch (ce) {
                 // Continue if error
             }
-            
+
         } catch (e) {
             // Continue with next target
         } finally {
             safeReset();
         }
     }
-    
+
     return foundAny;
 }
 
 function notifyDeletionResult(context, foundAny) {
     if (foundAny) {
-        alert(context + " completed.");
+        showAlert(context + " completed.");
     } else {
-        alert("No Hebrew marks found to delete.");
+        showAlert("No Hebrew marks found to delete.");
     }
 }
 

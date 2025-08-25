@@ -4,6 +4,25 @@
 */
 
 (function () {
+    // InDesign-style message dialog helper and alert override
+    function __showMessage__(title, message) {
+        var w = new Window('dialog', title || 'Message');
+        w.orientation = 'column';
+        w.margins = 16;
+        w.spacing = 12;
+        var msg = w.add('statictext', undefined, message, { multiline: true });
+        msg.characters = 60;
+        var row = w.add('group');
+        row.alignment = 'right';
+        row.spacing = 8;
+        var okBtn = row.add('button', undefined, 'OK', { name: 'ok' });
+        w.defaultElement = okBtn;
+        w.cancelElement = okBtn;
+        w.center();
+        w.show();
+    }
+    var alert = function(message) { __showMessage__('Select Text', String(message)); };
+
     // Guard: ensure InDesign and a document are available
     if (!app || !app.documents || app.documents.length === 0) {
         alert("Open a document before running SelectText.");
