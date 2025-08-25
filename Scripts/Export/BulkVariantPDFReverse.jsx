@@ -19,24 +19,6 @@ Usage:
 */
 
 (function () {
-    function showDialog(message, title) {
-        try {
-            var win = new Window('dialog', title || 'Message');
-            win.orientation = 'column';
-            win.margins = 16;
-            win.spacing = 12;
-            var txt = win.add('statictext', undefined, String(message));
-            txt.characters = 60;
-            var row = win.add('group');
-            row.alignment = 'right';
-            var ok = row.add('button', undefined, 'OK', { name: 'ok' });
-            win.defaultElement = ok;
-            win.cancelElement = ok;
-            win.show();
-        } catch (e) {
-            try { $.writeln(String(message)); } catch(_) {}
-        }
-    }
     if (!app || !app.documents || app.documents.length === 0) {
         alert("Open a document before running BulkVariantPDFReverse.");
         return;
@@ -58,7 +40,7 @@ Usage:
             var layers = d.layers;
             for (var i = 0; i < layers.length; i++) {
                 var nm = String(layers[i].name || "");
-                if (/^v\-/i.test(nm)) {
+                if (/^v-/i.test(nm)) {
                     result.push(layers[i]);
                 }
             }
@@ -119,7 +101,7 @@ Usage:
     var w = new Window("dialog", "Bulk Variant PDF Export (Reversed, skip first two)");
     w.orientation = "column"; w.alignChildren = ["fill", "top"]; w.margins = 16; w.spacing = 12;
 
-    var _info = w.add("statictext", undefined, "Exports one PDF per 'v-' layer in reversed order, skipping first two pages.");
+    w.add("statictext", undefined, "Exports one PDF per 'v-' layer in reversed order, skipping first two pages.");
 
     var presetGroup = w.add("group"); presetGroup.orientation = "row"; presetGroup.alignChildren = ["left", "center"]; presetGroup.spacing = 8;
     presetGroup.add("statictext", undefined, "PDF Preset:");
@@ -141,7 +123,7 @@ Usage:
     var outPathLabel = outInfo.add("statictext", undefined, pdfFolder.fsName);
     outPathLabel.characters = 40;
 
-    var _variantsLabel = w.add("statictext", undefined, "Variant layers found: " + variantLayers.length);
+    w.add("statictext", undefined, "Variant layers found: " + variantLayers.length);
 
     var variantsPanel = w.add("panel", undefined, "Variants to export");
     variantsPanel.alignment = ["fill", "fill"]; variantsPanel.margins = 12; variantsPanel.spacing = 8; variantsPanel.alignChildren = ["fill", "top"];
@@ -152,8 +134,8 @@ Usage:
     }
 
     var btns = w.add("group"); btns.alignment = ["right", "bottom"];
-    var _cancelBtn = btns.add("button", undefined, "Cancel", {name: "cancel"});
-    var _runBtn = btns.add("button", undefined, "Run", {name: "ok"});
+    btns.add("button", undefined, "Cancel", {name: "cancel"});
+    btns.add("button", undefined, "Run", {name: "ok"});
 
     var r = w.show();
     if (r !== 1) return; // canceled

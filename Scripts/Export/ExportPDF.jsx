@@ -94,7 +94,7 @@ Usage:
     w.orientation = "column";
     w.alignChildren = ["fill", "top"]; w.margins = 16; w.spacing = 12;
 
-    var _infoTxt = w.add("statictext", undefined, "Choose what to export and how:");
+    w.add("statictext", undefined, "Choose what to export and how:");
 
     var optionsPanel = w.add("panel", undefined, "Export Options");
     optionsPanel.orientation = "column"; optionsPanel.alignChildren = ["left", "top"]; optionsPanel.margins = 12; optionsPanel.spacing = 6;
@@ -108,11 +108,7 @@ Usage:
     cbRemoveTwo.enabled = cbReversed.value;
     cbReversed.onClick = function(){
         cbRemoveTwo.enabled = cbReversed.value;
-        if (cbReversed.value) {
-            cbRemoveTwo.value = true; // auto-check when reversed is selected
-        } else {
-            cbRemoveTwo.value = false; // uncheck when reversed is deselected
-        }
+        cbRemoveTwo.value = cbReversed.value; // mirror reversed selection
     };
 
     var presetGroup = w.add("group"); presetGroup.orientation = "row"; presetGroup.alignChildren = ["left", "center"]; presetGroup.spacing = 8;
@@ -401,10 +397,8 @@ Usage:
         try {
             // Try to get an existing temp style first
             objStyle = doc.objectStyles.itemByName(styleName);
-            if (!objStyle.isValid) {
-                throw new Error("Style not found");
-            }
-        } catch (_e) {
+        } catch (_e) {}
+        if (!objStyle || !objStyle.isValid) {
             // Create a new temporary object style
             objStyle = doc.objectStyles.add();
             objStyle.name = styleName;
@@ -435,10 +429,8 @@ Usage:
         try {
             // Try to get existing temp style first
             paraStyle = doc.paragraphStyles.itemByName(styleName);
-            if (!paraStyle.isValid) {
-                throw new Error("Style not found");
-            }
-        } catch (_e) {
+        } catch (_e) {}
+        if (!paraStyle || !paraStyle.isValid) {
             // Create new temporary paragraph style based on [No Paragraph Style]
             var baseStyle;
             try {
@@ -496,8 +488,7 @@ Usage:
             try {
                 var diag = Math.sqrt(pageWidth * pageWidth + pageHeight * pageHeight);
                 var targetLen = diag * WM_DEFAULT_COVERAGE;
-                var size = Math.max(24, (targetLen / Math.max(1, textLength)) * 1.35);
-                paraStyle.pointSize = size;
+                paraStyle.pointSize = Math.max(24, (targetLen / Math.max(1, textLength)) * 1.35);
             } catch (_pSize) {
                 try { paraStyle.pointSize = 72; } catch (_pSizeFallback) {}
             }
