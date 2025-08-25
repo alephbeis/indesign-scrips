@@ -281,7 +281,7 @@ function createPDF(theName){
 
 // Param special is optional. If supplied, it will be used in the pdf filename instead of the name of the nekuda
 function createPdfForEachLayerSet(special){
-	var aCondition, i, j, theName, theLayers;
+	var aCondition, i, j, theName;
 	for (i = 0; i < nk.layerSetsAsString.length; i++){
 		theName = nk.DOC_NAME;
 		if (nk.nikkudDoc){
@@ -353,9 +353,9 @@ function establishSets(){
 }
 
 function getLayerSets(){
-	var allLayers, i, j;
+	var i, j;
 	nk.layerSets = [];
-	allLayers = nk.doc.layers.everyItem().getElements();
+	// nk.doc.layers.everyItem().getElements(); // not used
 	for (i = 0; i < nk.layerSetsAsString.length; i++){
 		nk.layerSets[i] = [];
 		for (j = 0; j < nk.layerSetsAsString[i].length; j++){
@@ -515,7 +515,7 @@ function removeManzepachPages(){
 		return;
 	}
 	progressBarWrite("Removing מנצפך pages...");
-	var finds, i;
+	var finds;
 	app.findGrepPreferences = app.changeGrepPreferences = null;
 	app.findGrepPreferences.findWhat = "ם|ן|ץ|ף|ך";
 	app.findGrepPreferences.appliedParagraphStyle = nk.TARGET_LETTER_STYLE;
