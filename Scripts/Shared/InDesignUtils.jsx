@@ -457,6 +457,22 @@ InDesignUtils.FindChange.withCleanPrefs = function (fn, scope, options) {
 };
 
 /**
+ * Scope Utilities - Load from separate module
+ */
+// Load ScopeUtils.jsx if available for backward compatibility
+try {
+    var scriptInfo = InDesignUtils.Utils.getScriptInfo();
+    if (scriptInfo.folder) {
+        var scopeUtilsFile = File(scriptInfo.folder + "/ScopeUtils.jsx");
+        if (scopeUtilsFile.exists) {
+            $.evalFile(scopeUtilsFile);
+        }
+    }
+} catch (e) {
+    // ScopeUtils not available - scripts should load it directly if needed
+}
+
+/**
  * Utility Functions
  */
 InDesignUtils.Utils = InDesignUtils.Utils || {};
