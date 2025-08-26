@@ -13,6 +13,10 @@
     var scriptFile = File($.fileName);
     var utilsFile = File(scriptFile.parent.parent + "/Shared/InDesignUtils.jsx");
     if (utilsFile.exists) $.evalFile(utilsFile);
+
+    // Load scope utilities
+    var scopeUtilsFile = File(scriptFile.parent.parent + "/Shared/ScopeUtils.jsx");
+    if (scopeUtilsFile.exists) $.evalFile(scopeUtilsFile);
 })();
 
 // Main entry point
@@ -145,31 +149,8 @@
         bindExclusive(toRadios);
         // Intentionally do not preselect any item for "Change To" per UX requirement
 
-        // Right column - Scope panel
-        var scopePanel = mainGroup.add("panel", undefined, "Scope");
-        scopePanel.orientation = "column";
-        scopePanel.margins = 12;
-        scopePanel.spacing = 8;
-        scopePanel.alignChildren = "left";
-        scopePanel.alignment = "top";
-
-        var scopeRadios = [];
-        // Canonical order: All Documents, Document, Page, Story, Frame, Selected Text
-        var scopeOptions = [
-            { text: "All Documents", value: "allDocs" },
-            { text: "Document", value: "doc" },
-            { text: "Page", value: "page" },
-            { text: "Story", value: "story" },
-            { text: "Frame", value: "frame" },
-            { text: "Selected Text", value: "selection" }
-        ];
-
-        for (var k = 0; k < scopeOptions.length; k++) {
-            var scopeRadio = scopePanel.add("radiobutton", undefined, scopeOptions[k].text);
-            scopeRadio.value = scopeOptions[k].value === "doc"; // Select 'Document' by default
-            scopeRadio.scopeValue = scopeOptions[k].value;
-            scopeRadios.push(scopeRadio);
-        }
+        // Right column - Scope panel using shared utility
+        var scopeUI = InDesignUtils.Scope.createScopePanel(mainGroup);
 
         // Fixed heights so each list fits all 16 items in one column
         try {
@@ -177,82 +158,10 @@
             fromPanel.preferredSize.height = fixedPanelH;
             toPanel.preferredSize.height = fixedPanelH;
             // Scope panel height: ensure at least the same height for alignment
-            scopePanel.preferredSize.height = fixedPanelH;
+            scopeUI.panel.preferredSize.height = fixedPanelH;
             // Window height: panels + margins + buttons area
             dialog.preferredSize.height = 560;
         } catch (_eSizing) {}
-
-        // Determine selection context first
-        var hasTextFrameSelection = false;
-        var inTextContext = false; // true for any text context, including caret
-        var hasRangedTextSelection = false; // true only when there is an actual text range selection (not caret)
-        try {
-            if (app.selection && app.selection.length > 0) {
-                for (var _i = 0; _i < app.selection.length; _i++) {
-                    var _sel = app.selection[_i];
-                    try {
-                        var ctor = String(_sel && _sel.constructor && _sel.constructor.name);
-                        // Text context detection
-                        if (
-                            ctor === "InsertionPoint" ||
-                            ctor === "Text" ||
-                            ctor === "Word" ||
-                            ctor === "Character" ||
-                            ctor === "TextStyleRange" ||
-                            ctor === "Paragraph" ||
-                            ctor === "Line"
-                        ) {
-                            inTextContext = true;
-                        }
-                        // Ranged text selection (exclude caret and frame selections)
-                        if (ctor !== "InsertionPoint" && ctor !== "TextFrame") {
-                            var t = null;
-                            try {
-                                if (_sel && _sel.texts && _sel.texts.length > 0) t = _sel.texts[0];
-                            } catch (eT) {
-                                t = null;
-                            }
-                            try {
-                                if (t && t.characters && t.characters.length && t.characters.length > 0) {
-                                    hasRangedTextSelection = true;
-                                }
-                            } catch (eLen) {}
-                        }
-                        // Consider as text frame if it's a TextFrame or exposes text/lines
-                        if (ctor === "TextFrame") {
-                            hasTextFrameSelection = true;
-                        } else if (_sel && _sel.texts && _sel.texts.length > 0 && _sel.lines) {
-                            hasTextFrameSelection = true;
-                        }
-                    } catch (e) {}
-                }
-            }
-        } catch (e0) {}
-
-        // Enablement rules: show but disable if not applicable
-        for (var _r = 0; _r < scopeRadios.length; _r++) {
-            if (scopeRadios[_r].scopeValue === "selection") {
-                scopeRadios[_r].enabled = hasRangedTextSelection; // Disable for caret-only selection
-            } else if (scopeRadios[_r].scopeValue === "story") {
-                scopeRadios[_r].enabled = inTextContext || hasTextFrameSelection;
-            } else if (scopeRadios[_r].scopeValue === "frame") {
-                scopeRadios[_r].enabled = inTextContext || hasTextFrameSelection;
-            }
-        }
-
-        // Ensure no disabled option is selected
-        for (_r = 0; _r < scopeRadios.length; _r++) {
-            if (!scopeRadios[_r].enabled && scopeRadios[_r].value) {
-                scopeRadios[_r].value = false;
-                // ensure Document is active
-                for (var _r2 = 0; _r2 < scopeRadios.length; _r2++) {
-                    if (scopeRadios[_r2].scopeValue === "doc") {
-                        scopeRadios[_r2].value = true;
-                        break;
-                    }
-                }
-            }
-        }
 
         // Action buttons
         var buttonGroup = dialog.add("group");
@@ -303,13 +212,7 @@
             }
 
             // Get selected scope
-            var selectedScope = "doc";
-            for (var l = 0; l < scopeRadios.length; l++) {
-                if (scopeRadios[l].value) {
-                    selectedScope = scopeRadios[l].scopeValue;
-                    break;
-                }
-            }
+            var selectedScope = scopeUI.getSelectedScope();
 
             // Store values and close dialog immediately
             dialog.close(1);
@@ -383,7 +286,7 @@
     function executeChange(fromNekuda, toNekuda, scope) {
         try {
             // Resolve targets first
-            var targets = resolveScopeTargets(scope);
+            var targets = InDesignUtils.Scope.resolveScopeTargets(scope);
             if (!targets || targets.length === 0) {
                 // Resolver already alerted the user
                 return;
@@ -407,7 +310,7 @@
             // Show completion message based on whether changes were made
             if (changesMade) {
                 InDesignUtils.UI.alert(
-                    "Change completed successfully!\n\n" + "Changed: " + fromNekuda.name + " → " + toNekuda.name,
+                    "Change completed successfully!\n\nChanged: " + fromNekuda.name + " → " + toNekuda.name,
                     "Change Nekuda"
                 );
             } else {
@@ -466,173 +369,5 @@
             null,
             { inclusive: true }
         );
-    }
-
-    /**
-     * Resolve scope targets based on the selected scope
-     * @param {string} scope - The scope type
-     * @returns {Array} Array of target objects
-     */
-    function resolveScopeTargets(scope) {
-        var tgts = [];
-        if (scope === "allDocs") {
-            if (!app.documents || app.documents.length === 0) {
-                InDesignUtils.UI.alert("No open documents.", "Change Nekuda");
-                return [];
-            }
-            for (var d = 0; d < app.documents.length; d++) {
-                try {
-                    if (InDesignUtils.Error.isValid(app.documents[d])) tgts.push(app.documents[d]);
-                } catch (e) {}
-            }
-            return tgts;
-        }
-        if (scope === "doc") {
-            var doc = InDesignUtils.Objects.getActiveDocument();
-            if (doc) {
-                tgts.push(doc);
-            } else {
-                InDesignUtils.UI.alert("No active document.", "Change Nekuda");
-            }
-            return tgts;
-        }
-        if (scope === "story") {
-            var story = null;
-            try {
-                if (app.selection && app.selection.length > 0) {
-                    var sel = app.selection[0];
-                    try {
-                        if (sel && sel.constructor && String(sel.constructor.name) === "Story") story = sel;
-                    } catch (ex) {}
-                    if (!story) {
-                        try {
-                            if (sel && sel.parentStory && InDesignUtils.Error.isValid(sel.parentStory))
-                                story = sel.parentStory;
-                        } catch (ex2) {}
-                    }
-                }
-            } catch (e3) {}
-            if (!story) {
-                InDesignUtils.UI.alert("Select some text or a text frame to target its story.", "Change Nekuda");
-                return [];
-            }
-            tgts.push(story);
-            return tgts;
-        }
-        if (scope === "page") {
-            var page = null;
-            try {
-                if (app.layoutWindows && app.layoutWindows.length > 0) page = app.layoutWindows[0].activePage;
-                else if (app.activeWindow) page = app.activeWindow.activePage;
-            } catch (e4) {}
-            if (!page) {
-                alert("No active page. Open a layout window and try again.");
-                return [];
-            }
-            try {
-                var frames = page.textFrames ? page.textFrames.everyItem().getElements() : [];
-                for (var i = 0; i < frames.length; i++) {
-                    try {
-                        var pageTf = frames[i];
-                        var pageLines = null;
-                        try {
-                            pageLines = pageTf && pageTf.lines ? pageTf.lines.everyItem().getElements() : [];
-                        } catch (ee0) {
-                            pageLines = [];
-                        }
-                        if (pageLines && pageLines.length > 0) {
-                            var pageFirstChar = null,
-                                pageLastChar = null;
-                            try {
-                                pageFirstChar = pageLines[0].characters[0];
-                            } catch (ee1) {}
-                            try {
-                                var pageLastLine = pageLines[pageLines.length - 1];
-                                pageLastChar = pageLastLine.characters[-1];
-                            } catch (ee2) {}
-                            if (pageFirstChar && pageLastChar) {
-                                var pageRange = null;
-                                try {
-                                    pageRange = pageTf.parentStory.texts.itemByRange(pageFirstChar, pageLastChar);
-                                } catch (ee3) {}
-                                if (pageRange && pageRange.isValid) tgts.push(pageRange);
-                            }
-                        }
-                    } catch (e5) {}
-                }
-            } catch (e7) {}
-            if (tgts.length === 0) alert("No text found on the active page.");
-            return tgts;
-        }
-        if (scope === "frame") {
-            if (!app.selection || app.selection.length === 0) {
-                alert("Select one or more frames.");
-                return [];
-            }
-            for (var s = 0; s < app.selection.length; s++) {
-                var it = app.selection[s];
-                var tf = null;
-                try {
-                    var ctor = String(it && it.constructor && it.constructor.name);
-                    if (ctor === "TextFrame") tf = it;
-                } catch (ef) {}
-                if (!tf) {
-                    try {
-                        if (it && it.texts && it.texts.length > 0 && it.lines) tf = it;
-                    } catch (ef2) {}
-                }
-                if (tf) {
-                    var lines = null;
-                    try {
-                        lines = tf.lines ? tf.lines.everyItem().getElements() : [];
-                    } catch (ee0) {
-                        lines = [];
-                    }
-                    if (lines && lines.length > 0) {
-                        var firstChar = null,
-                            lastChar = null;
-                        try {
-                            firstChar = lines[0].characters[0];
-                        } catch (ee1) {}
-                        try {
-                            var lastLine = lines[lines.length - 1];
-                            lastChar = lastLine.characters[-1];
-                        } catch (ee2) {}
-                        if (firstChar && lastChar) {
-                            var range = null;
-                            try {
-                                range = tf.parentStory.texts.itemByRange(firstChar, lastChar);
-                            } catch (ee3) {}
-                            if (range && range.isValid) tgts.push(range);
-                        }
-                    }
-                }
-            }
-            if (tgts.length === 0) alert("No text found in the selected frame(s).");
-            return tgts;
-        }
-        if (scope === "selection") {
-            if (!app.selection || app.selection.length === 0) {
-                alert("Make a text selection first.");
-                return [];
-            }
-            for (var si = 0; si < app.selection.length; si++) {
-                var item = app.selection[si];
-                var txt = null;
-                try {
-                    if (item && item.texts && item.texts.length > 0) txt = item.texts[0];
-                } catch (e8) {}
-                // Do not escalate to parentStory in Selection scope; require actual text
-                if (txt && txt.isValid) tgts.push(txt);
-            }
-            if (tgts.length === 0) alert("The selection does not contain editable text.");
-            return tgts;
-        }
-        // fallback
-        try {
-            var dflt = app.activeDocument;
-            if (dflt && dflt.isValid) tgts.push(dflt);
-        } catch (e10) {}
-        return tgts;
     }
 })();
