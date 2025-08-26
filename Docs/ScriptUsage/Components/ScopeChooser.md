@@ -164,10 +164,10 @@ Potential improvements to the scope option functionality:
 
 ## Related Documentation
 
-- [Scope Implementation Guide](../../Engineering/ScopeImplementation.md) - Technical implementation details and code examples
+- [Scope Utilities (source of truth)](../../../Scripts/Shared/ScopeUtils.jsx) - Unified scope UI and resolution implementation
 - [Dialog UX Conventions](../../Engineering/DialogUXConventions.md) - UI layout and interaction standards
 - [Code Standards](../../Engineering/CodeStandards.md) - Development guidelines and best practices
 
 ---
 
-*This document covers the functional requirements for the scope option feature. For technical implementation details, code examples, and developer guidance, see the [Scope Implementation Guide](../../Engineering/ScopeImplementation.md).*
+*This document covers the functional requirements for the scope option feature. For technical implementation details, code examples, and developer guidance, see the [Scope Utilities (source of truth)](../../../Scripts/Shared/ScopeUtils.jsx).*

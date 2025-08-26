@@ -26,7 +26,6 @@ Contents
   - CodeStandards.md — Engineering code standards, safety patterns, and performance guidelines.
   - DialogUXConventions.md — Dialog UI/UX conventions for scripts (layout, scope, buttons).
   - SharedUtilities.md — Documentation for shared utility functions and InDesign helper methods.
-  - ScopeImplementation.md — Technical implementation details for scope selection functionality.
   - ImprovementBacklog.md — Engineering improvement backlog and technical debt tracking.
 
 Notes

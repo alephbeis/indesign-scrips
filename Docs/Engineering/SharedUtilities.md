@@ -56,7 +56,8 @@ We tested three approaches for including shared code in ExtendScript:
 ```
 Scripts/
   Shared/
-    InDesignUtils.jsx     # Complete utility library with all common functions
+    InDesignUtils.jsx     # Utility library with most common functions
+    ScopeUtils.jsx        # Unified search scope UI and resolution
 ```
 
 The shared utilities are implemented as a single comprehensive file with organized namespaces:
