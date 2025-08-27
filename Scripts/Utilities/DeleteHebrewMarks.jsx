@@ -7,17 +7,26 @@ try {
     var utilsFile = File(scriptFile.parent.parent + "/Shared/InDesignUtils.jsx");
     if (utilsFile.exists) $.evalFile(utilsFile);
 
+    // Load Find/Change utilities explicitly
+    var findChangeFile = File(scriptFile.parent.parent + "/Shared/FindChangeUtils.jsx");
+    if (findChangeFile.exists) $.evalFile(findChangeFile);
+
     // Load ScopeUtils for scope functionality
     var scopeUtilsFile = File(scriptFile.parent.parent + "/Shared/ScopeUtils.jsx");
     if (scopeUtilsFile.exists) $.evalFile(scopeUtilsFile);
+
+    // Load UI utilities
+    var uiUtilsFile = File(scriptFile.parent.parent + "/Shared/UIUtils.jsx");
+    if (uiUtilsFile.exists) $.evalFile(uiUtilsFile);
 } catch (e) {
     throw new Error("Cannot load shared utilities: " + e.toString());
 }
 
 function showAlert(message) {
-    InDesignUtils.UI.alert(String(message), "Hebrew Marks Deletion");
+    UIUtils.alert(String(message), "Hebrew Marks Deletion");
 }
 
+/* global ScopeUtils, FindChange, UIUtils */
 // Create dialog with radio buttons for user selection
 function createDialog() {
     var dialog = new Window("dialog", "Hebrew Marks Deletion");
@@ -53,7 +62,7 @@ function createDialog() {
     nikudRadio.value = true;
 
     // Create scope panel using shared utility
-    var scopeUI = InDesignUtils.Scope.createScopePanel(row);
+    var scopeUI = ScopeUtils.createScopePanel(row);
 
     // Bottom buttons (right-aligned): Cancel then Run
     var buttonGroup = dialog.add("group");
@@ -97,7 +106,7 @@ if (!activeDoc) {
     var userChoice = createDialog();
     if (userChoice && userChoice.choice) {
         var scopeChoice = userChoice.scope;
-        var targets = InDesignUtils.Scope.resolveScopeTargets(scopeChoice);
+        var targets = ScopeUtils.resolveScopeTargets(scopeChoice);
         if (!targets || targets.length === 0) {
             // message already shown in resolver
         } else {
@@ -143,11 +152,15 @@ function changeAcrossTargets(findPattern, replaceText, targets) {
     for (var i = 0; i < targets.length; i++) {
         var t = targets[i];
         try {
-            var result = InDesignUtils.FindChange.withCleanPrefs(function (scope) {
-                app.findGrepPreferences.findWhat = findPattern;
-                app.changeGrepPreferences.changeTo = replaceText;
-                return scope.changeGrep();
-            }, t);
+            var result = FindChange.withCleanPrefs(
+                function (scope) {
+                    app.findGrepPreferences.findWhat = findPattern;
+                    app.changeGrepPreferences.changeTo = replaceText;
+                    return scope.changeGrep();
+                },
+                t,
+                { engine: "grep" }
+            );
 
             if (result && result.length && result.length > 0) {
                 foundAny = true;

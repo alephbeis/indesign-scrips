@@ -1,373 +1,345 @@
-/**
- * Change Nekuda
- * Provides flexible interface to change any Hebrew vowel mark (nekuda) to any other
- *
- * Features:
- * - Change From: Lists all Nekudos plus Shin and Sin dots
- * - Change To: Lists all Nekudos plus Shin and Sin dots
- * - Full flexibility for any combination of changes
- */
+/*
+ ChangeNekuda.jsx — Convert one Hebrew nekuda to another
+ Follows repo best practices and Scope chooser conventions.
+ - Keeps original nekudos order for both "Change From" and "Change To".
+*/
+/* global UIUtils, ScopeUtils, FindChange */
 
-// Load shared utilities
 (function () {
+    // Load shared utilities
     var scriptFile = File($.fileName);
-    var utilsFile = File(scriptFile.parent.parent + "/Shared/InDesignUtils.jsx");
-    if (utilsFile.exists) $.evalFile(utilsFile);
+    var sharedRoot = scriptFile.parent.parent + "/Shared/";
 
-    // Load scope utilities
-    var scopeUtilsFile = File(scriptFile.parent.parent + "/Shared/ScopeUtils.jsx");
-    if (scopeUtilsFile.exists) $.evalFile(scopeUtilsFile);
-})();
+    function _load(fileName, required) {
+        var f = File(sharedRoot + fileName);
+        if (f.exists) {
+            $.evalFile(f);
+            return true;
+        } else if (required) {
+            throw new Error(fileName + " not found in Shared/");
+        }
+        return false;
+    }
 
-// Main entry point
-(function () {
-    "use strict";
+    _load("InDesignUtils.jsx", true);
+    _load("FindChangeUtils.jsx", true);
+    _load("ScopeUtils.jsx", true);
+    _load("UIUtils.jsx", true);
 
-    // Check if document is available
-    var doc = InDesignUtils.Objects.getActiveDocument();
-    if (!doc) {
-        InDesignUtils.UI.alert("Please open a document before running this script.", "Change Nekuda");
+    // Guard: ensure there is an active document context
+    var activeDoc =
+        InDesignUtils && InDesignUtils.Objects && InDesignUtils.Objects.getActiveDocument
+            ? InDesignUtils.Objects.getActiveDocument()
+            : app.documents && app.documents.length > 0
+              ? app.activeDocument
+              : null;
+    if (!activeDoc) {
+        UIUtils.alert("Open a document before running Change Nekuda.", "Change Nekuda");
         return;
     }
 
-    // Define all Nekudos with their Unicode characters and Hebrew names
-    // Ordered according to requirements: Kamatz, Pasach, Tzeirei, Segol, Sheva, etc.
-    var nekudos = [
-        { name: "Kamatz", hebrew: "קמץ", unicode: "\\x{05B8}", character: "\u05B8" },
-        { name: "Pasach", hebrew: "פתח", unicode: "\\x{05B7}", character: "\u05B7" },
-        { name: "Tzeirei", hebrew: "צירי", unicode: "\\x{05B5}", character: "\u05B5" },
-        { name: "Segol", hebrew: "סגול", unicode: "\\x{05B6}", character: "\u05B6" },
-        { name: "Sheva", hebrew: "שוא", unicode: "\\x{05B0}", character: "\u05B0" },
-        { name: "Cholam Chaser", hebrew: "חולם חסר", unicode: "\\x{05B9}", character: "\u05B9" },
-        { name: "Cholam Malei", hebrew: "חולם מלא", unicode: "\\x{05D5}\\x{05B9}", character: "\u05D5\u05B9" },
-        { name: "Chirik Chaser", hebrew: "חיריק חסר", unicode: "\\x{05B4}", character: "\u05B4" },
-        { name: "Chirik Malei", hebrew: "חיריק מלא", unicode: "\\x{05B4}\\x{05D9}", character: "\u05B4\u05D9" },
-        { name: "Kubutz", hebrew: "קובוץ", unicode: "\\x{05BB}", character: "\u05BB" },
-        { name: "Shuruk", hebrew: "שורוק", unicode: "\\x{05D5}\\x{05BC}", character: "\u05D5\u05BC" },
-        { name: "Chataf Kamatz", hebrew: "חטף קמץ", unicode: "\\x{05B3}", character: "\u05B3" },
-        { name: "Chataf Pasach", hebrew: "חטף פתח", unicode: "\\x{05B2}", character: "\u05B2" },
-        { name: "Chataf Segol", hebrew: "חטף סגול", unicode: "\\x{05B1}", character: "\u05B1" },
-        { name: "Shin Dot", hebrew: "נקודת שין", unicode: "\\x{05C1}", character: "\u05C1" },
-        { name: "Sin Dot", hebrew: "נקודת שין שמאלית", unicode: "\\x{05C2}", character: "\u05C2" }
+    // Original order list of nekudos (names and patterns)
+    // Note: patterns use GREP Unicode escapes (\x{XXXX}) for reliability
+    var NEKUDOS = [
+        { id: "kamatz", name: "קמץ", find: "\\x{05B8}", change: "\\x{05B8}" },
+        { id: "pasach", name: "פתח", find: "\\x{05B7}", change: "\\x{05B7}" },
+        { id: "tzeirei", name: "צירי", find: "\\x{05B5}", change: "\\x{05B5}" },
+        { id: "segol", name: "סגול", find: "\\x{05B6}", change: "\\x{05B6}" },
+        { id: "sheva", name: "שבא", find: "\\x{05B0}", change: "\\x{05B0}" },
+        { id: "cholamChaser", name: "חולם חסר", find: "\\x{05B9}", change: "\\x{05B9}" },
+        {
+            id: "cholamMalei",
+            name: "חולם מלא",
+            find: "\\x{05D5}\\x{05B9}",
+            change: "\\x{05D5}\\x{05B9}"
+        },
+        { id: "chirikChaser", name: "חיריק חסר", find: "\\x{05B4}", change: "\\x{05B4}" },
+        {
+            id: "chirikMalei",
+            name: "חיריק מלא",
+            find: "\\x{05B4}\\x{05D9}",
+            change: "\\x{05B4}\\x{05D9}"
+        },
+        { id: "kubutz", name: "קובוץ", find: "\\x{05BB}", change: "\\x{05BB}" },
+        { id: "shuruk", name: "שורוק", find: "\\x{05D5}\\x{05BC}", change: "\\x{05D5}\\x{05BC}" },
+        { id: "chatafKamatz", name: "חטף קמץ", find: "\\x{05B3}", change: "\\x{05B3}" },
+        { id: "chatafPasach", name: "חטף פתח", find: "\\x{05B2}", change: "\\x{05B2}" },
+        { id: "chatafSegol", name: "חטף סגול", find: "\\x{05B1}", change: "\\x{05B1}" },
+        { id: "shinDot", name: "נקודת שׁ", find: "\\x{05C1}", change: "\\x{05C1}" },
+        { id: "sinDot", name: "נקודת שׂ", find: "\\x{05C2}", change: "\\x{05C2}" }
     ];
 
-    // Show main dialog
-    showChangeNekudaDialog();
+    function showAlert(msg) {
+        UIUtils.alert(String(msg), "Change Nekuda");
+    }
 
-    /**
-     * Show the main dialog with Change From and Change To options
-     */
-    function showChangeNekudaDialog() {
-        var dialog = new Window("dialog", "Change Nekuda");
-        dialog.orientation = "column";
-        dialog.margins = 16;
-        dialog.spacing = 12;
-        dialog.preferredSize.width = 600;
+    // GREP options used during scans and replacements
+    var GREP_OPTIONS = {
+        includeFootnotes: true,
+        includeHiddenLayers: true,
+        includeLockedLayersForFind: true,
+        includeLockedStoriesForFind: true,
+        includeMasterPages: true,
+        kanaSensitive: false,
+        searchBackwards: false,
+        widthSensitive: false
+    };
 
-        // Scan document for existing nekudos
-        var foundNekudos = scanDocumentForNekudos();
+    function createDialog() {
+        var dlg = new Window("dialog", "Change Nekuda");
+        dlg.orientation = "column";
+        dlg.alignChildren = "left";
+        dlg.margins = 16;
+        dlg.spacing = 12;
 
-        // Build a presence map for quick lookup (name -> count)
-        var presentMap = {};
-        for (var _fi = 0; _fi < foundNekudos.length; _fi++) {
-            presentMap[foundNekudos[_fi].name] = foundNekudos[_fi].count || 0;
-        }
+        dlg.add("statictext", undefined, "Select a nekuda to replace and a target nekuda:");
 
-        // Main two-column layout
-        var mainGroup = dialog.add("group");
-        mainGroup.orientation = "row";
-        mainGroup.alignment = "left";
-        mainGroup.spacing = 12;
+        var row = dlg.add("group");
+        row.orientation = "row";
+        row.alignChildren = "top";
+        row.spacing = 12;
 
-        // Left column (smaller) - Change From/To
-        var leftColumn = mainGroup.add("group");
-        leftColumn.orientation = "row";
-        leftColumn.spacing = 8;
-        leftColumn.alignment = "top";
-
-        // Change From section
-        var fromPanel = leftColumn.add("panel", undefined, "Change From");
+        // Three columns: From | To | Scope
+        var fromPanel = row.add("panel", undefined, "Change From");
         fromPanel.orientation = "column";
+        fromPanel.alignChildren = "left";
         fromPanel.margins = 12;
-        fromPanel.spacing = 8;
-        fromPanel.alignChildren = "fill";
 
-        // Single-column radio list for Change From
-        var fromListCol = fromPanel.add("group");
-        fromListCol.orientation = "column";
-        fromListCol.alignChildren = "left";
-
+        // Radio buttons for From
         var fromRadios = [];
-        var firstEnabledFromIndex = -1;
-        for (var i = 0; i < nekudos.length; i++) {
-            var n = nekudos[i];
-            var label = n.name + " (" + n.hebrew + ")";
-            var rb = fromListCol.add("radiobutton", undefined, label);
-            rb.enabled = Object.prototype.hasOwnProperty.call(presentMap, n.name) && presentMap[n.name] > 0;
-            rb._index = i; // store index into nekudos array
+        for (var i = 0; i < NEKUDOS.length; i++) {
+            var rb = fromPanel.add("radiobutton", undefined, NEKUDOS[i].name);
+            rb.enabled = false; // will be enabled if found in scope after scan
             fromRadios.push(rb);
-            if (firstEnabledFromIndex === -1 && rb.enabled) firstEnabledFromIndex = fromRadios.length - 1;
-        }
-        // Manual exclusivity across columns
-        function bindExclusive(radios) {
-            for (var r = 0; r < radios.length; r++) {
-                (function (idx) {
-                    radios[idx].onClick = function () {
-                        for (var k = 0; k < radios.length; k++) {
-                            radios[k].value = k === idx;
-                        }
-                    };
-                })(r);
-            }
-        }
-        bindExclusive(fromRadios);
-        if (firstEnabledFromIndex !== -1) {
-            fromRadios[firstEnabledFromIndex].value = true;
         }
 
-        // Change To section
-        var toPanel = leftColumn.add("panel", undefined, "Change To");
+        var toPanel = row.add("panel", undefined, "Change To");
         toPanel.orientation = "column";
+        toPanel.alignChildren = "left";
         toPanel.margins = 12;
-        toPanel.spacing = 8;
-        toPanel.alignChildren = "fill";
 
-        // Single-column radio list for Change To
-        var toListCol = toPanel.add("group");
-        toListCol.orientation = "column";
-        toListCol.alignChildren = "left";
-
+        // Radio buttons for To (all enabled by default)
         var toRadios = [];
-        for (var j = 0; j < nekudos.length; j++) {
-            var nt = nekudos[j];
-            var lbl = nt.name + " (" + nt.hebrew + ")";
-            var rb2 = toListCol.add("radiobutton", undefined, lbl);
-            rb2.enabled = true; // always allow choosing any target
-            rb2._index = j; // store index into nekudos array
-            toRadios.push(rb2);
+        for (var j = 0; j < NEKUDOS.length; j++) {
+            var trb = toPanel.add("radiobutton", undefined, NEKUDOS[j].name);
+            toRadios.push(trb);
         }
-        bindExclusive(toRadios);
-        // Intentionally do not preselect any item for "Change To" per UX requirement
 
-        // Right column - Scope panel using shared utility
-        var scopeUI = InDesignUtils.Scope.createScopePanel(mainGroup);
+        // Right column: Scope panel
+        var scopeUI = ScopeUtils.createScopePanel(row);
 
-        // Fixed heights so each list fits all 16 items in one column
-        try {
-            var fixedPanelH = 440; // fits 16 radios comfortably
-            fromPanel.preferredSize.height = fixedPanelH;
-            toPanel.preferredSize.height = fixedPanelH;
-            // Scope panel height: ensure at least the same height for alignment
-            scopeUI.panel.preferredSize.height = fixedPanelH;
-            // Window height: panels + margins + buttons area
-            dialog.preferredSize.height = 560;
-        } catch (_eSizing) {}
+        // Bottom buttons
+        var btns = dlg.add("group");
+        btns.alignment = "right";
+        var cancelBtn = btns.add("button", undefined, "Cancel", { name: "cancel" });
+        var runBtn = btns.add("button", undefined, "Run", { name: "ok" });
+        dlg.defaultElement = runBtn;
+        dlg.cancelElement = cancelBtn;
 
-        // Action buttons
-        var buttonGroup = dialog.add("group");
-        buttonGroup.alignment = "right";
-        buttonGroup.spacing = 8;
+        // Helpers
+        function getSelectedFromIndex() {
+            for (var idx = 0; idx < fromRadios.length; idx++) if (fromRadios[idx].value) return idx;
+            return -1;
+        }
+        function getSelectedToIndex() {
+            for (var idx = 0; idx < toRadios.length; idx++) if (toRadios[idx].value) return idx;
+            return -1;
+        }
+        function updateRunEnabled() {
+            var fi = getSelectedFromIndex();
+            var ti = getSelectedToIndex();
+            var hasValidFrom = fi >= 0 && fromRadios[fi].enabled;
+            var hasValidTo = ti >= 0; // To radios are always enabled
+            var notSame = hasValidFrom && hasValidTo ? fi !== ti : false;
+            runBtn.enabled = hasValidFrom && hasValidTo && notSame;
+        }
 
-        var cancelButton = buttonGroup.add("button", undefined, "Cancel", { name: "cancel" });
-        var runButton = buttonGroup.add("button", undefined, "Run", { name: "ok" });
-        dialog.defaultElement = runButton;
-        dialog.cancelElement = cancelButton;
+        function scanAndEnableFrom() {
+            var scopeChoice = scopeUI.getSelectedScope();
+            var targets = ScopeUtils.resolveScopeTargets(scopeChoice);
 
-        // Cancel button handler
-        cancelButton.onClick = function () {
-            dialog.close();
-        };
-
-        // Run button handler
-        runButton.onClick = function () {
-            var fromIndex = -1;
-            for (var f = 0; f < fromRadios.length; f++) {
-                if (fromRadios[f].value) {
-                    fromIndex = fromRadios[f]._index;
-                    break;
-                }
+            // Reset From enablement and labels
+            for (var r = 0; r < fromRadios.length; r++) {
+                fromRadios[r].enabled = false;
+                fromRadios[r].text = NEKUDOS[r].name;
+                fromRadios[r].value = false;
             }
-            var toIndex = -1;
-            for (var t = 0; t < toRadios.length; t++) {
-                if (toRadios[t].value) {
-                    toIndex = toRadios[t]._index;
-                    break;
-                }
+            // Always enable ALL To radios with base labels (no conditions)
+            for (var r2 = 0; r2 < toRadios.length; r2++) {
+                toRadios[r2].enabled = true;
+                toRadios[r2].text = NEKUDOS[r2].name;
             }
-
-            if (fromIndex === -1 || toIndex === -1) {
-                InDesignUtils.UI.alert("Please select both 'Change From' and 'Change To' options.", "Change Nekuda");
-                return;
-            }
-
-            var fromNekuda = nekudos[fromIndex];
-            var toNekuda = nekudos[toIndex];
-
-            if (fromNekuda.unicode === toNekuda.unicode) {
-                InDesignUtils.UI.alert(
-                    "Source and target Nekudos are the same. No changes would be made.",
-                    "Change Nekuda"
-                );
-                return;
-            }
-
-            // Get selected scope
-            var selectedScope = scopeUI.getSelectedScope();
-
-            // Store values and close dialog immediately
-            dialog.close(1);
-
-            // Execute change after dialog closes
-            executeChange(fromNekuda, toNekuda, selectedScope);
-        };
-
-        // Show dialog
-        dialog.center();
-        dialog.show();
-    }
-
-    /**
-     * Scan the document to find which Nekudos are actually present
-     * @returns {Array} Array of nekuda objects with count information
-     */
-    function scanDocumentForNekudos() {
-        var foundNekudos = [];
-
-        return InDesignUtils.Prefs.withoutRedraw(function () {
-            return InDesignUtils.FindChange.withCleanPrefs(
-                function (doc) {
-                    for (var i = 0; i < nekudos.length; i++) {
-                        var nekuda = nekudos[i];
-                        var count = 0;
-
-                        // Set up search for this nekuda
-                        app.findGrepPreferences.findWhat = nekuda.unicode;
-
-                        // Find all instances
-                        var found = doc.findGrep();
-                        count = found.length;
-
-                        if (count > 0) {
-                            foundNekudos.push({
-                                name: nekuda.name,
-                                hebrew: nekuda.hebrew,
-                                unicode: nekuda.unicode,
-                                character: nekuda.character,
-                                count: count
-                            });
-                        }
-                    }
-
-                    // Sort by predefined nekudos array order instead of occurrence count
-                    foundNekudos.sort(function (a, b) {
-                        var aIndex = -1,
-                            bIndex = -1;
-                        for (var i = 0; i < nekudos.length; i++) {
-                            if (nekudos[i].name === a.name) aIndex = i;
-                            if (nekudos[i].name === b.name) bIndex = i;
-                        }
-                        return aIndex - bIndex;
-                    });
-
-                    return foundNekudos;
-                },
-                doc,
-                { inclusive: true }
-            );
-        });
-    }
-
-    /**
-     * Execute the change operation
-     * @param {Object} fromNekuda - Source nekuda object
-     * @param {Object} toNekuda - Target nekuda object
-     * @param {string} scope - Scope of the change
-     */
-    function executeChange(fromNekuda, toNekuda, scope) {
-        try {
-            // Resolve targets first
-            var targets = InDesignUtils.Scope.resolveScopeTargets(scope);
             if (!targets || targets.length === 0) {
-                // Resolver already alerted the user
+                updateRunEnabled();
                 return;
             }
+            // Count occurrences for each nekuda across targets to enable From radios and show counts
+            for (var k = 0; k < NEKUDOS.length; k++) {
+                var total = 0;
+                try {
+                    // Use direct GREP search without FindChange wrapper to avoid closure issues
+                    app.findGrepPreferences = NothingEnum.nothing;
+                    app.changeGrepPreferences = NothingEnum.nothing;
 
-            var changesMade = false;
-
-            // Wrap in undo group with redraw disabled
-            app.doScript(
-                function () {
-                    changesMade = InDesignUtils.Prefs.withoutRedraw(function () {
-                        return performChange(fromNekuda, toNekuda, targets);
-                    });
-                },
-                undefined,
-                undefined,
-                UndoModes.ENTIRE_SCRIPT,
-                "Change Nekuda: " + fromNekuda.name + " → " + toNekuda.name
-            );
-
-            // Show completion message based on whether changes were made
-            if (changesMade) {
-                InDesignUtils.UI.alert(
-                    "Change completed successfully!\n\nChanged: " + fromNekuda.name + " → " + toNekuda.name,
-                    "Change Nekuda"
-                );
-            } else {
-                InDesignUtils.UI.alert(
-                    "No changes were made.\n\n" +
-                        "No instances of " +
-                        fromNekuda.name +
-                        " were found in the selected scope.",
-                    "Change Nekuda"
-                );
-            }
-        } catch (error) {
-            InDesignUtils.UI.alert("Error during change operation: " + error.message, "Change Nekuda");
-        }
-    }
-
-    /**
-     * Perform the actual change operation
-     * @param {Object} fromNekuda - Source nekuda object
-     * @param {Object} toNekuda - Target nekuda object
-     * @param {Array} targets - Target objects resolved from scope
-     * @returns {boolean} True if changes were made, false otherwise
-     */
-    function performChange(fromNekuda, toNekuda, targets) {
-        return InDesignUtils.FindChange.withCleanPrefs(
-            function () {
-                // Set up find/change options
-                app.findChangeGrepOptions.properties = {
-                    includeFootnotes: true,
-                    includeHiddenLayers: true,
-                    includeMasterPages: true,
-                    includeLockedLayersForFind: true,
-                    includeLockedStoriesForFind: true
-                };
-
-                var changesMade = false;
-
-                // Reset preferences, set find/change once per target
-                for (var t = 0; t < targets.length; t++) {
-                    var tgt = targets[t];
+                    // Apply GREP options directly
                     try {
-                        app.findGrepPreferences.findWhat = fromNekuda.unicode;
-                        app.changeGrepPreferences.changeTo = toNekuda.unicode;
-                        var result = tgt.changeGrep();
-                        // changeGrep returns a collection - check if it has items
-                        if (result && result.length && result.length > 0) {
-                            changesMade = true;
-                        }
-                    } catch (inner) {
-                        // continue other targets
+                        app.findChangeGrepOptions.includeFootnotes = GREP_OPTIONS.includeFootnotes;
+                        app.findChangeGrepOptions.includeHiddenLayers = GREP_OPTIONS.includeHiddenLayers;
+                        app.findChangeGrepOptions.includeLockedLayersForFind = GREP_OPTIONS.includeLockedLayersForFind;
+                        app.findChangeGrepOptions.includeLockedStoriesForFind =
+                            GREP_OPTIONS.includeLockedStoriesForFind;
+                        app.findChangeGrepOptions.includeMasterPages = GREP_OPTIONS.includeMasterPages;
+                    } catch (optErr) {
+                        // Ignore options errors; continue with search
                     }
-                }
 
-                return changesMade;
-            },
-            null,
-            { inclusive: true }
-        );
+                    for (var t = 0; t < targets.length; t++) {
+                        try {
+                            app.findGrepPreferences.findWhat = NEKUDOS[k].find;
+                            var found = targets[t].findGrep();
+                            var foundCount = found ? found.length : 0;
+                            total += foundCount;
+                        } catch (eInner) {
+                            // Ignore individual search errors; continue
+                        }
+                    }
+
+                    // Clear preferences after search
+                    app.findGrepPreferences = NothingEnum.nothing;
+                    app.changeGrepPreferences = NothingEnum.nothing;
+                } catch (e) {
+                    // Ignore overall search errors; continue with next nekuda
+                }
+                if (total > 0) {
+                    fromRadios[k].enabled = true;
+                    fromRadios[k].text = NEKUDOS[k].name;
+                }
+            }
+            updateRunEnabled();
+        }
+
+        // Wire events
+        for (var s = 0; s < fromRadios.length; s++) {
+            (function (ii) {
+                fromRadios[ii].onClick = function () {
+                    updateRunEnabled();
+                };
+            })(s);
+        }
+        // Wire to radios
+        for (var s2 = 0; s2 < toRadios.length; s2++) {
+            (function (ii) {
+                toRadios[ii].onClick = function () {
+                    updateRunEnabled();
+                };
+            })(s2);
+        }
+
+        // Rescan when scope choice changes
+        scopeUI.rbAllDocs.onClick = scanAndEnableFrom;
+        scopeUI.rbDoc.onClick = scanAndEnableFrom;
+        scopeUI.rbPage.onClick = scanAndEnableFrom;
+        scopeUI.rbStory.onClick = scanAndEnableFrom;
+        if (scopeUI.rbFrame) scopeUI.rbFrame.onClick = scanAndEnableFrom;
+        scopeUI.rbSelection.onClick = scanAndEnableFrom;
+
+        // Initial scan
+        scanAndEnableFrom();
+
+        // Validate and close
+        runBtn.onClick = function () {
+            var fi = getSelectedFromIndex();
+            var ti = getSelectedToIndex();
+            if (fi < 0 || !fromRadios[fi].enabled) {
+                UIUtils.alert("Choose a nekuda to replace (enabled item)", "Change Nekuda");
+                return;
+            }
+            if (ti < 0) {
+                UIUtils.alert("Choose a target nekuda in 'Change To'", "Change Nekuda");
+                return;
+            }
+            if (fi === ti) {
+                UIUtils.alert("'Change From' and 'Change To' cannot be the same.", "Change Nekuda");
+                return;
+            }
+            dlg.close(1);
+        };
+        cancelBtn.onClick = function () {
+            dlg.close(0);
+        };
+
+        var res = dlg.show();
+        if (res !== 1) return null;
+        return {
+            scope: scopeUI.getSelectedScope(),
+            fromIndex: getSelectedFromIndex(),
+            toIndex: getSelectedToIndex()
+        };
     }
+
+    function replaceAcrossTargets(fromIdx, toIdx, targets) {
+        var fromPattern = NEKUDOS[fromIdx].find;
+        var toText = NEKUDOS[toIdx].change;
+        var changedTotal = 0;
+
+        var results = FindChange.runFindChange(
+            {
+                engine: "grep",
+                find: { findWhat: fromPattern },
+                change: { changeTo: toText },
+                scope: "document",
+                target: targets && targets.length ? targets[0] : activeDoc
+            },
+            function (config, results) {
+                return FindChange.withFindChange("grep", GREP_OPTIONS, function () {
+                    for (var i = 0; i < targets.length; i++) {
+                        var t = targets[i];
+                        try {
+                            app.findGrepPreferences.findWhat = fromPattern;
+                            app.changeGrepPreferences.changeTo = toText;
+                            var foundItems = t.findGrep();
+                            var count = foundItems ? foundItems.length : 0;
+                            results.totalFound += count;
+                            if (count > 0) {
+                                t.changeGrep(true);
+                                results.totalChanged += count;
+                            }
+                        } catch (e) {
+                            results.errors.push({ target: FindChange._getTargetName(t), error: e.toString() });
+                        }
+                    }
+                    return results;
+                });
+            }
+        );
+
+        changedTotal = results.totalChanged || 0;
+        return changedTotal;
+    }
+
+    // Run flow
+    var selection = createDialog();
+    if (!selection) return; // cancelled
+
+    var scopeChoice = selection.scope;
+    var targets = ScopeUtils.resolveScopeTargets(scopeChoice);
+    if (!targets || targets.length === 0) {
+        // Resolver already alerted if needed
+        return;
+    }
+
+    app.doScript(
+        function () {
+            var changed = replaceAcrossTargets(selection.fromIndex, selection.toIndex, targets);
+            if (changed > 0) {
+                showAlert("Change Nekuda completed: " + changed + " replacements made.");
+            } else {
+                showAlert("No matching nekuda found to replace.");
+            }
+        },
+        ScriptLanguage.JAVASCRIPT,
+        undefined,
+        UndoModes.ENTIRE_SCRIPT,
+        "Change Nekuda"
+    );
 })();

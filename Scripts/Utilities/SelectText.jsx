@@ -3,15 +3,18 @@
  to the end of the story. Uses guards and early returns per project standards.
 */
 
+/* global UIUtils */
 // Load shared utilities
 var scriptFile = File($.fileName);
 var utilsFile = File(scriptFile.parent.parent + "/Shared/InDesignUtils.jsx");
 if (utilsFile.exists) $.evalFile(utilsFile);
+var uiUtilsFile = File(scriptFile.parent.parent + "/Shared/UIUtils.jsx");
+if (uiUtilsFile.exists) $.evalFile(uiUtilsFile);
 
 (function () {
     // Use shared alert function
     var alert = function (message) {
-        InDesignUtils.UI.alert(message, "Select Text");
+        UIUtils.alert(message, "Select Text");
     };
 
     // Guard: ensure document is available
