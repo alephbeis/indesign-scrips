@@ -6,9 +6,7 @@
     "scripts": {
         "lint": "eslint \"Scripts/**/*.jsx\"",
         "format": "prettier --write \"Scripts/**/*.jsx\" \"UXP/**/*.js\" \"*.json\" \"*.md\"",
-        "format:check": "prettier --check \"Scripts/**/*.jsx\" \"UXP/**/*.js\" \"*.json\" \"*.md\"",
-        "guard:findchange": "node .wip/migration/findchange/findchange-guard.js",
-        "guard:scope": "node .wip/migration/scope/scope-guard.js"
+        "format:check": "prettier --check \"Scripts/**/*.jsx\" \"UXP/**/*.js\" \"*.json\" \"*.md\""
     },
     "devDependencies": {
         "eslint": "^8.57.0",

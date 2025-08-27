@@ -1,0 +1,23 @@
+name: Style
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  style:
+    name: Lint and Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install dependencies
+        run: npm ci
+      - name: ESLint
+        run: npm run lint
+      - name: Prettier format check
+        run: npm run format:check
