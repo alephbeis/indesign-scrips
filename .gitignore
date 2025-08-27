@@ -33,6 +33,7 @@ pids
 tmp/
 temp/
 .pnpm-debug.log*
+.wip/
 
 # Coverage and build output
 coverage/
