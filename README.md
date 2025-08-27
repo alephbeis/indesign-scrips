@@ -24,14 +24,16 @@ Note for contributors and AI agents:
 - Not Maintained scripts: Do NOT use for reference and do NOT update unless explicitly instructed.
     - Scripts/Export/BulkPDFGenerator.jsx
 - Docs live under Docs/ (see Docs/README.md for index). Some scripts have dedicated READMEs inside Docs organized by script name.
+- Troubleshooting: See Docs/Troubleshooting/PermissionsGuide.md for macOS Automation/Accessibility permissions fixes.
 
 ## Repository layout
 
-- Scripts/ — All runnable scripts
+- Scripts/ — Runnable scripts and shared utility libraries
     - Scripts/Export/ — Export scripts (ExportPDF, ExportPlainRTF, BulkPDFGenerator, BulkPDFReverse)
     - Scripts/Utilities/ — Common utilities (ChangeNekuda, DeleteHebrewMarks, SelectText)
     - Scripts/Cleanup/ — Document cleanup utilities (CharacterCleanup, RemoveNumericPrefixes, ReplaceObject, UnusedStylesManager)
-    - Scripts/Shared/ — Shared utility libraries (InDesignUtils.jsx provides UI helpers, error handling, object utilities, layer management, and preferences management)
+    - Scripts/Shared/ — Shared utility libraries (InDesignUtils.jsx provides error handling, object utilities, layer management, and preferences management; FindChangeUtils.jsx provides find/change operations; UIUtils.jsx provides UI helpers; ScopeUtils.jsx provides scope resolution; ExportUtils.jsx provides export/PDF helpers)
+- UXP/ — UXP-based scripts and plugins (ExportPDF.uxp.js)
 - Docs/ — Documentation and references (except this main README)
     - Docs/README.md — Documentation index
     - Docs/ScriptUsage/Export/BulkPDFGenerator.md — "Nekudos" and "Variants" logic, prerequisites, and usage
@@ -53,6 +55,18 @@ InDesign (JSX): place scripts into your Scripts Panel folder and restart InDesig
 
 - Windows: %AppData%/Adobe/InDesign/[version]/[language]/Scripts/Scripts Panel/
 - macOS: ~/Library/Preferences/Adobe InDesign/[version]/[language]/Scripts/Scripts Panel/
+
+### Using the Shared folder (important)
+
+- All shared utility modules must live under Scripts/Shared/.
+- Runnable entry-point scripts should be placed in their respective category folders (e.g., Scripts/Export, Scripts/Utilities, Scripts/Cleanup) and load shared modules from Scripts/Shared.
+- Scripts are expected to include shared code via $.evalFile() using paths relative to the script’s folder, for example:
+    - File(scriptFolder + "/Shared/InDesignUtils.jsx")
+    - File(scriptFolder + "/Shared/FindChangeUtils.jsx")
+    - File(scriptFolder + "/Shared/UIUtils.jsx")
+    - File(scriptFolder + "/Shared/ScopeUtils.jsx")
+    - File(scriptFolder + "/Shared/ExportUtils.jsx")
+- Keep all common helpers inside Scripts/Shared so that every script can reliably load them. See Docs/Engineering/SharedUtilities.md for details.
 
 ## Development Setup
 
@@ -92,8 +106,8 @@ npm run lint  # Run ESLint on all Scripts/**/*.jsx files
 
 ### Export Scripts
 
-- **ExportPDF.jsx** — Export Normal and/or Reversed PDFs using a chosen preset. Features: optional first-page removal, security settings, hyperlinks/bookmarks toggles, viewer preferences, and progress feedback. Non-destructive. See Docs/ScriptUsage/Export/ExportPDF.md for details.
-- **ExportPDF.uxp.js** — UXP-based variant of ExportPDF with core features (Normal/Reversed order, optional skip-first-two, preset selection). Configure options via the CONFIG object at the top of the file. See Docs/ScriptUsage/Export/ExportPDF.md → UXP Version.
+- **ExportPDF.jsx** — Export Normal and/or Reversed PDFs using a chosen preset. Features: optional first-page removal (reversed only), basic security (Print PDF), Interactive PDF mode, optional text watermark, “View PDF after export,” progress feedback, and optional PDF subfolder. Non-destructive. See Docs/ScriptUsage/Export/ExportPDF.md for details.
+- **ExportPDF.uxp.js** — UXP-based variant of ExportPDF with core features (Normal/Reversed order, optional skip-first-two, preset selection, view-after-export). Configure options via the CONFIG object at the top of the file. See Docs/ScriptUsage/Export/ExportPDF.md → UXP Version.
 - **BulkPDFReverse.jsx** — Batch export reversed-variant PDFs across multiple documents using a chosen preset. Designed for folder-based processing workflows. See Docs/ScriptUsage/Export/BulkPDFReverse.md for details.
 - **ExportPlainRTF.jsx** — Export text-only RTF with all formatting removed. Preserves page breaks, includes section-aware page numbering, and center-aligns text. See Docs/ScriptUsage/Export/ExportPlainRTF.md for details.
 - **BulkPDFGenerator.jsx** _(Not Maintained)_ — Advanced PDF generation with "Nekudos" and "Variants" logic. See Docs/ScriptUsage/Export/BulkPDFGenerator.md for details.

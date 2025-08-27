@@ -29,7 +29,7 @@ We tested three approaches for including shared code in ExtendScript:
 (function() {
     'use strict';
     
-    // Load shared utilities
+    // Load core utilities
     var scriptFile = File($.fileName);
     var scriptFolder = scriptFile.parent;
     var utilsFile = File(scriptFolder + "/Shared/InDesignUtils.jsx");
@@ -37,14 +37,27 @@ We tested three approaches for including shared code in ExtendScript:
     if (utilsFile.exists) {
         $.evalFile(utilsFile);
     } else {
-        // Fallback for missing utilities
         alert("Required utilities not found: " + utilsFile.fsName);
         return;
     }
     
+    // Load additional utilities as needed
+    var findChangeFile = File(scriptFolder + "/Shared/FindChangeUtils.jsx");
+    if (findChangeFile.exists) $.evalFile(findChangeFile);
+    
+    var uiUtilsFile = File(scriptFolder + "/Shared/UIUtils.jsx");
+    if (uiUtilsFile.exists) $.evalFile(uiUtilsFile);
+    
+    var scopeUtilsFile = File(scriptFolder + "/Shared/ScopeUtils.jsx");
+    if (scopeUtilsFile.exists) $.evalFile(scopeUtilsFile);
+    
+    var exportUtilsFile = File(scriptFolder + "/Shared/ExportUtils.jsx");
+    if (exportUtilsFile.exists) $.evalFile(exportUtilsFile);
+    
     // Use loaded utilities
-    InDesignUtils.withSafePreferences(function() {
-        // Your script logic here
+    InDesignUtils.Prefs.withSafePreferences(function() {
+        UIUtils.alert("Script started");
+        // Your script logic here using FindChange.*, UIUtils.*, ScopeUtils.*, ExportUtils.*
     });
 })();
 ```
@@ -56,11 +69,14 @@ We tested three approaches for including shared code in ExtendScript:
 ```
 Scripts/
   Shared/
-    InDesignUtils.jsx     # Utility library with most common functions
-    ScopeUtils.jsx        # Unified search scope UI and resolution
+    InDesignUtils.jsx     # Core utilities: error handling, object utilities, layer management, preferences
+    FindChangeUtils.jsx   # Find/change operations and GREP utilities
+    UIUtils.jsx          # UI helpers: dialogs, progress windows, alerts
+    ScopeUtils.jsx       # Scope resolution and UI components
+    ExportUtils.jsx      # Export/PDF utilities (e.g., sanitizeFilenamePart)
 ```
 
-The shared utilities are implemented as a single comprehensive file with organized namespaces:
+The shared utilities are implemented as specialized modules with organized namespaces:
 
 ### Core Utility Categories
 
@@ -104,10 +120,17 @@ Safe access patterns for InDesign objects:
 
 ### 1. Namespace Pattern
 
-All shared utilities use a consistent namespace pattern:
+Each utility module uses a consistent namespace pattern:
 
 ```javascript
+// Core utilities
 var InDesignUtils = InDesignUtils || {};
+
+// Feature-specific utilities
+var FindChange = FindChange || {};
+var UIUtils = UIUtils || {};
+var ScopeUtils = ScopeUtils || {};
+var ExportUtils = ExportUtils || {};
 ```
 
 ### 2. Error Resilience
@@ -115,7 +138,7 @@ var InDesignUtils = InDesignUtils || {};
 Utilities are designed to fail gracefully:
 
 ```javascript
-InDesignUtils.showMessage = function(title, message) {
+UIUtils.showMessage = function(title, message) {
     try {
         // Primary approach: ScriptUI dialog
         var win = new Window('dialog', title);
@@ -136,19 +159,6 @@ InDesignUtils.showMessage = function(title, message) {
 };
 ```
 
-### 3. Backward Compatibility
-
-Scripts can detect and adapt to missing utilities:
-
-```javascript
-if (typeof InDesignUtils !== 'undefined') {
-    // Use shared utilities
-    InDesignUtils.alert("Modern approach");
-} else {
-    // Fall back to inline implementation
-    alert("Legacy approach");
-}
-```
 
 ## Implementation Strategy
 
@@ -161,11 +171,6 @@ if (typeof InDesignUtils !== 'undefined') {
 - Find/change wrappers
 - Progress window management
 - Measurement unit helpers
-
-### Phase 3: Migration Support
-- Update existing scripts gradually
-- Maintain backward compatibility
-- Document migration patterns
 
 ## Benefits
 

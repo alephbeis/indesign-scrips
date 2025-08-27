@@ -74,3 +74,10 @@ F) Compatibility & Documentation
 - Confirm APIs used are supported in targeted InDesign versions; avoid deprecated patterns.
 - If you modified runtime behavior, perform a quick manual verification.
 - Update or add usage docs if behavior changes materially.
+
+G) Temporary File Management
+- Use `.wip` directory: Place all temporary files in the `.wip` directory at the project root to keep them organized and easily identifiable.
+- Create subfolders for file sets: If creating a whole set of temporary documents or files, create a subfolder within `.wip` to keep it clean and organized.
+- Clean up after completion: Remove temporary files when tasks are complete, or document their retention policy clearly.
+- Avoid repository root: Never place temporary files directly in the project root or other non-designated locations.
+- See `Docs/Engineering/CodeStandards.md` section "Temporary File Management" for complete details and examples.

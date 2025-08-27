@@ -247,7 +247,28 @@ function normalizeWhitespace(doc = app.activeDocument) {
 
 ---
 
-## 16) Line Ending Standards
+## 16) Temporary File Management
+
+When creating temporary files as part of a script task:
+
+* **Use `.wip` directory:** Place all temporary files in a `.wip` directory at the project root to keep them organized and easily identifiable.
+* **Create subfolders for file sets:** If creating a whole set of temporary documents or files, create a subfolder within `.wip` to keep it clean and organized.
+* **Clean up after completion:** Remove temporary files when the task is complete, or document their retention policy clearly.
+* **Avoid repository root:** Never place temporary files directly in the project root or other non-designated locations.
+
+Example structure:
+```
+project-root/
+  .wip/
+    task-2025-08-27/          # subfolder for a specific task
+      temp-doc-1.indd
+      temp-export-1.pdf
+    single-temp-file.indd     # standalone temp file
+```
+
+---
+
+## 17) Line Ending Standards
 
 To ensure cross-platform compatibility, all files in this repository must use LF (Line Feed) line endings. Follow these steps:
 - Set your Git configuration globally with `git config --global core.autocrlf input` to normalize line endings on commit.
@@ -258,7 +279,7 @@ To ensure cross-platform compatibility, all files in this repository must use LF
 
 ---
 
-## 15) ESLint for ExtendScript (JSX)
+## 18) ESLint for ExtendScript (JSX)
 
 Key points of our configuration:
 - JavaScript version: ES3 for `Scripts/**/*.jsx` via parserOptions override; ES6 features (let/const, classes, modules) are not available in ExtendScript.
