@@ -69,11 +69,11 @@ We tested three approaches for including shared code in ExtendScript:
 ```
 Scripts/
   Shared/
-    InDesignUtils.jsx     # Core utilities: error handling, object utilities, layer management, preferences
-    FindChangeUtils.jsx   # Find/change operations and GREP utilities
-    UIUtils.jsx          # UI helpers: dialogs, progress windows, alerts
-    ScopeUtils.jsx       # Scope resolution and UI components
-    ExportUtils.jsx      # Export/PDF utilities (e.g., sanitizeFilenamePart)
+    InDesignUtils.jsx     # Core utilities: error handling, object utilities, layer management, preferences; namespace: InDesignUtils
+    FindChangeUtils.jsx   # Find/change operations and GREP utilities; namespace: FindChange
+    UIUtils.jsx           # UI helpers: dialogs, progress windows, alerts; namespace: UIUtils
+    ScopeUtils.jsx        # Scope resolution and UI components; namespace: ScopeUtils
+    ExportUtils.jsx       # Export/PDF utilities (e.g., sanitizeFilenamePart); namespace: ExportUtils
 ```
 
 The shared utilities are implemented as specialized modules with organized namespaces:
@@ -158,19 +158,6 @@ UIUtils.showMessage = function(title, message) {
     }
 };
 ```
-
-
-## Implementation Strategy
-
-### Phase 1: Core Utilities
-- Basic dialog helpers
-- Error handling utilities
-- Simple message functions
-
-### Phase 2: Advanced Operations
-- Find/change wrappers
-- Progress window management
-- Measurement unit helpers
 
 ## Benefits
 

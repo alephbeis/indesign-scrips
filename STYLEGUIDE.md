@@ -89,9 +89,9 @@ Maintenance and guardrails
 - Run linting: npm run lint
 - CI: .github/workflows/style.yml enforces `npm run lint` and `npm run format:check` on pushes and PRs.
 - Quick commands:
-  - Check formatting: npm run format:check
-  - Fix formatting: npm run format
-  - Lint: npm run lint
+    - Check formatting: npm run format:check
+    - Fix formatting: npm run format
+    - Lint: npm run lint
 
 Compatibility
 

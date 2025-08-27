@@ -1,4 +1,4 @@
-# Junie Project Guidelines
+# Agent Project Guidelines
 
 Purpose
 - This file provides project-specific guidance for Junie (JetBrains autonomous coding agent) to ensure all generated code aligns with this repository’s standards and workflows.
@@ -30,14 +30,15 @@ Repository pointers
 - Primary standards: Docs/Engineering/CodeStandards.md
 - Additional guidance: Docs/AI-Agent-Instructions.md
 
-Notes for Junie
+Notes for AI agents
 - Produce minimal diffs and avoid unnecessary refactors.
 - Prefer safe patterns detailed in the engineering standards (undo, prefs restore, try/catch/finally, minimize redraw, batch operations).
 - If uncertain about a UI or pattern, copy an established pattern from existing scripts in this repository.
 
 ---
 
-AI Agents Pre-Submit Checklist (Detailed)
+# AI Agents Pre-Submit Checklist (Detailed)
+
 Use this as a final gate before submitting any change.
 
 A) Linting & Formatting

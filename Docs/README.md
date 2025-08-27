@@ -27,6 +27,8 @@ Contents
   - DialogUXConventions.md — Dialog UI/UX conventions for scripts (layout, scope, buttons).
   - SharedUtilities.md — Documentation for shared utility functions and InDesign helper methods.
   - ImprovementBacklog.md — Engineering improvement backlog and technical debt tracking.
+  - ../STYLEGUIDE.md — Repository style guide and formatting/linting commands (Maintenance & Style)
+  - ../.editorconfig — Editor baseline for consistent formatting across editors
 
 Notes
 

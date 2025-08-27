@@ -32,7 +32,7 @@ Note for contributors and AI agents:
     - Scripts/Export/ — Export scripts (ExportPDF, ExportPlainRTF, BulkPDFGenerator, BulkPDFReverse)
     - Scripts/Utilities/ — Common utilities (ChangeNekuda, DeleteHebrewMarks, SelectText)
     - Scripts/Cleanup/ — Document cleanup utilities (CharacterCleanup, RemoveNumericPrefixes, ReplaceObject, UnusedStylesManager)
-    - Scripts/Shared/ — Shared utility libraries (InDesignUtils.jsx provides error handling, object utilities, layer management, and preferences management; FindChangeUtils.jsx provides find/change operations; UIUtils.jsx provides UI helpers; ScopeUtils.jsx provides scope resolution; ExportUtils.jsx provides export/PDF helpers)
+    - Scripts/Shared/ — Shared utility libraries (InDesignUtils.jsx provides error handling, object utilities, layer management, and preferences management; FindChangeUtils.jsx provides find/change operations; UIUtils.jsx provides UI helpers; ScopeUtils.jsx provides scope resolution; ExportUtils.jsx provides export/PDF helpers). Exposed namespaces: InDesignUtils, FindChange, UIUtils, ScopeUtils, ExportUtils
 - UXP/ — UXP-based scripts and plugins (ExportPDF.uxp.js)
 - Docs/ — Documentation and references (except this main README)
     - Docs/README.md — Documentation index
@@ -101,6 +101,15 @@ npm run lint  # Run ESLint on all Scripts/**/*.jsx files
 - Prettier formatting is enforced - run `npm run format` before committing
 - Line endings are enforced as LF via .gitattributes
 - See `Docs/Engineering/CodeStandards.md` for detailed coding conventions
+
+### Maintenance & Style
+
+- Single source of truth for code and comment style: see STYLEGUIDE.md
+- Editor/IDE baseline: see .editorconfig
+- Automated formatting and linting:
+    - npm run format / npm run format:check
+    - npm run lint
+- Audit artifacts live in .wip/ during review and must be removed after approval.
 
 ## Available scripts
 
