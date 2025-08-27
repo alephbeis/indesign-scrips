@@ -1,13 +1,16 @@
 /**
- * InDesign Scope Utilities
- * Scope resolution and UI creation for InDesign scripts
- *
+ * Purpose: Provide scope resolution helpers and a reusable scope selection UI for InDesign scripts (ExtendScript, ES3-safe).
+ * Public API:
+ *  - ScopeUtils.resolveScopeTargets(scope)
+ *  - ScopeUtils.createScopePanel(container, options)
+ *  - (Optional) ScopeUtils.alert(message) consumed if present by this module
+ * Dependencies: Adobe InDesign ExtendScript runtime (app) and ScriptUI for panel creation. No external modules required.
  * Usage:
+ *   // Load and use in a script panel
  *   var scriptFile = File($.fileName);
  *   var utilsFile = File(scriptFile.parent + "/Shared/ScopeUtils.jsx");
  *   if (utilsFile.exists) $.evalFile(utilsFile);
- *
- * Version: 1.0.0
+ *   var scopeUI = ScopeUtils.createScopePanel(windowOrGroup);
  */
 
 /* global ScopeUtils: true */
@@ -17,9 +20,10 @@ if (typeof ScopeUtils === "undefined") {
 }
 
 /**
- * Resolve scope targets based on scope type
- * @param {string} scope - Scope type: 'allDocs', 'doc', 'page', 'story', 'frame', 'selection'
- * @returns {Array} Array of resolved targets
+ * Resolve scope targets for operations.
+ * @param {string} scope - 'allDocs'|'doc'|'page'|'story'|'frame'|'selection'.
+ * @returns {Array} targets - Concrete InDesign objects to operate on (Documents, Stories, Texts, Frames).
+ * Side-effects: Shows alerts via ScopeUtils.alert or alert when prerequisites are not met (e.g., no document, no text).
  */
 ScopeUtils.resolveScopeTargets = function (scope) {
     var tgts = [];
@@ -233,10 +237,11 @@ ScopeUtils.resolveScopeTargets = function (scope) {
 };
 
 /**
- * Create scope selection UI panel
- * @param {Object} container - UI container to add scope panel to
- * @param {Object} options - Configuration options
- * @returns {Object} Scope UI elements and helper functions
+ * Create scope selection UI panel and infer sensible defaults based on current selection.
+ * @param {Object} container - ScriptUI container (Window or Group) to append the panel to.
+ * @param {Object} options - Configuration options (e.g., { title, margins, includeFrame }).
+ * @returns {Object} ui - Radio buttons and helpers, including getSelectedScope().
+ * Side-effects: Reads app.selection to determine default/enablement; constructs ScriptUI elements under the container.
  */
 ScopeUtils.createScopePanel = function (container, options) {
     options = options || {};

@@ -1,15 +1,20 @@
 /**
- * FindChangeUtils.jsx — Standalone Find/Change utilities for InDesign (ExtendScript, ES3-safe)
- * Namespace: FindChange
- *
+ * Purpose: Standalone Find/Change utilities for Adobe InDesign (ExtendScript, ES3-safe); provides a safe wrapper around find/change prefs and scoped operations.
  * Public API:
  *  - FindChange.runFindChange(config, runner?)
  *  - FindChange.withFindChange(engine, options, fn)
  *  - FindChange.clearAllPrefs(engine)
  *  - FindChange.expandScope(scope, target?)
  *  - FindChange.report(results)
- *  - FindChange.configure(adapters)  // optional injection of { isValid, getActiveDocument, getSelection }
- *
+ *  - FindChange.configure(adapters) // optional injection of { isValid, getActiveDocument, getSelection }
+ * Dependencies: Adobe InDesign ExtendScript runtime (app). Optionally integrates with InDesignUtils (Objects/Error) when present via FindChange.configure.
+ * Usage:
+ *  // Wrap a GREP search/change safely
+ *  FindChange.withFindChange("grep", { includeMasterPages: true }, function () {
+ *      app.findGrepPreferences.findWhat = "foo";
+ *      app.changeGrepPreferences.changeTo = "bar";
+ *      var changed = app.changeGrep();
+ *  });
  * Notes:
  *  - No global polyfills are added (e.g., Object.keys). Internal helpers are used instead.
  *  - Optional auto-wire: if InDesignUtils.Error and InDesignUtils.Objects exist, adapters are injected.
@@ -67,10 +72,12 @@ var FindChange = FindChange || {};
     }
 
     /**
-     * Unified find/change operation entry point
-     * @param {Object} config - { engine, find, change, options, scope, target, dryRun }
-     * @param {Function} runner - optional custom runner
-     * @returns {Object} results
+     * Unified find/change operation entry point.
+     * @param {Object} config - Configuration: { engine, find, change, options, scope, target, dryRun }.
+     * @param {Function} runner - Optional custom runner to override default behavior.
+     * @returns {Object} results - Totals, per-target details, and errors.
+     * Side-effects: Reads active document/selection; when dryRun is false, applies changes to targets.
+     *               Find/change preferences are set/reset internally via withFindChange.
      */
     NS.runFindChange = function (config, runner) {
         config = config || {};
@@ -150,7 +157,12 @@ var FindChange = FindChange || {};
     };
 
     /**
-     * Execute find/change with automatic preference cleanup and state restoration
+     * Execute a find/change block with automatic preference cleanup and state restoration.
+     * @param {"text"|"grep"|"glyph"|"object"} engine - Find/Change engine to use.
+     * @param {Object} options - Engine options to apply (e.g., includeMasterPages, includeHiddenLayers, ...).
+     * @param {Function} fn - Callback executed with prefs active; perform app.find...Preferences and app.change...Preferences operations within.
+     * @returns {*} result - The return value of the callback, if any.
+     * Side-effects: Temporarily modifies find/change preferences and engine options; always resets them in finally.
      */
     NS.withFindChange = function (engine, options, fn) {
         options = options || {};
