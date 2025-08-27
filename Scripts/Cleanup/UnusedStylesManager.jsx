@@ -1,8 +1,10 @@
 /**
- * UnusedStylesManager.jsx — Mode dropdown + folder path column
- * Default mode: "Has no usage at all"
- * Robust delete: uses replacement style so removal always succeeds.
- * ES3-safe; tolerant to find options across builds.
+ * Purpose: Manage and remove unused styles in the active InDesign document; provides scan, dependency awareness, and safe delete via replacement styles.
+ * Public API: Script entry point (IIFE). No exported functions; invoked from the InDesign Scripts panel.
+ * Dependencies: Adobe InDesign ExtendScript runtime (app). Shared modules loaded at runtime: InDesignUtils.jsx (Objects/Error), FindChangeUtils.jsx (namespace FindChange), UIUtils.jsx. Assumes an open document.
+ * Usage:
+ *   // In InDesign Scripts panel: double-click "UnusedStylesManager.jsx" with a document open.
+ *   // Or evaluate from ExtendScript Toolkit/VSCode runner within an open document context.
  */
 
 /* global FindChange, UIUtils */
