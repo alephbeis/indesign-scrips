@@ -22,10 +22,15 @@ Notes:
 - If the original document uses sections/numbering, page.name preserves the labeled page number string.
 */
 
+/* global UIUtils */
 // Load shared utilities
 var scriptFile = File($.fileName);
 var utilsFile = File(scriptFile.parent.parent + "/Shared/InDesignUtils.jsx");
 $.evalFile(utilsFile);
+
+// Load UI utilities
+var uiUtilsFile = File(scriptFile.parent.parent + "/Shared/UIUtils.jsx");
+if (uiUtilsFile.exists) $.evalFile(uiUtilsFile);
 
 (function () {
     if (app && app.doScript) {
@@ -41,7 +46,7 @@ $.evalFile(utilsFile);
 
                     // UI helpers - using InDesignUtils
                     function showAlert(msg) {
-                        return InDesignUtils.UI.alert(msg);
+                        return UIUtils.alert(msg);
                     }
                     // Guards: Ensure InDesign and a document are available
                     if (!app || !app.documents || app.documents.length === 0) {
@@ -96,7 +101,7 @@ $.evalFile(utilsFile);
                     }
 
                     // Progress window - using InDesignUtils
-                    var progressController = InDesignUtils.UI.createProgressWindow("Export to Plain RTF", {
+                    var progressController = UIUtils.createProgressWindow("Export to Plain RTF", {
                         width: 520,
                         initialText: "Preparing..."
                     });

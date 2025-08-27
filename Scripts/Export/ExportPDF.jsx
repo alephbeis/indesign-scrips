@@ -27,6 +27,10 @@ Usage:
 - Click Export.
 */
 
+/* global UIUtils, ExportUtils */
+// SECTION: Bootstrapping & Guards
+// - Load shared utilities and verify an active document exists before proceeding.
+// - Provide simple notify helpers via UIUtils.
 (function () {
     // Load shared utilities (Shared/InDesignUtils.jsx)
     try {
@@ -39,6 +43,14 @@ Usage:
             alert("Required utilities not found: " + __utilsFile.fsName);
             return;
         }
+
+        // Load UI utilities
+        var __uiUtilsFile = File(__scriptFile.parent.parent + "/Shared/UIUtils.jsx");
+        if (__uiUtilsFile.exists) $.evalFile(__uiUtilsFile);
+
+        // Load Export utilities
+        var __exportUtilsFile = File(__scriptFile.parent.parent + "/Shared/ExportUtils.jsx");
+        if (__exportUtilsFile.exists) $.evalFile(__exportUtilsFile);
         if (typeof InDesignUtils === "undefined") {
             alert("Failed to load required utilities.");
             return;
@@ -50,11 +62,11 @@ Usage:
         return;
     }
     function showDialog(message, title) {
-        return InDesignUtils.UI.showMessage(title || "Message", String(message));
+        return UIUtils.showMessage(title || "Message", String(message));
     }
     // Local notifier delegating to shared utilities
     function notify(msg, title) {
-        return InDesignUtils.UI.alert(String(msg), title || "Message");
+        return UIUtils.alert(String(msg), title || "Message");
     }
     if (!app || !app.documents || app.documents.length === 0) {
         showDialog("Open a document before running ExportPDF.", "Export PDF");
@@ -95,6 +107,7 @@ Usage:
         return;
     }
 
+    // SECTION: UI Construction
     // Build user interface
     var w = new Window("dialog", "Export PDF (Normal/Reversed)");
     w.orientation = "column";
@@ -188,6 +201,7 @@ Usage:
     function updateWatermarkEnabled() {
         watermarkTextEdit.enabled = cbWatermark.value;
     }
+    // SECTION: Compatibility & State Helpers
     // Compatibility: Security is not supported with Interactive PDFs.
     function updateCompatibility() {
         try {
@@ -328,7 +342,7 @@ Usage:
     }
 
     // Create progress UI using shared utility only
-    var __pw = InDesignUtils.UI.createProgressWindow("Exporting PDFs", { width: 520, initialText: "Starting…" });
+    var __pw = UIUtils.createProgressWindow("Exporting PDFs", { width: 520, initialText: "Starting…" });
     var _prog = {
         set: function (txt, percent) {
             __pw.update(typeof percent === "number" ? percent : undefined, txt || undefined);
@@ -506,321 +520,40 @@ Usage:
         }
     }
 
+    // SECTION: Export Execution Helpers
+    // - exportNormal delegates to exportVariant for consistent logic.
+    // - applyWatermarkLayer/removeWatermarkLayer proxy to ExportUtils when available.
     // Descriptive function names: Normal = exportNormal; Reversed = exportVariant (isReversed = true)
     function exportNormal(outFile) {
         return exportVariant(false, false, outFile);
     }
 
-    // --- Watermark defaults to match Acrobat sequence (literal text, no numbers) ---
-    var WM_DEFAULT_ANGLE = 45; // degrees
-    var WM_DEFAULT_OPACITY = 65; // percent
-    var WM_DEFAULT_COVERAGE = 0.8; // fraction of page diagonal
-
-    // Create a temporary object style with clean properties for watermarks
-    function createWatermarkObjectStyle(doc) {
-        var styleName = "__TEMP_WM_OBJECT__";
-        var objStyle;
-
-        try {
-            // Try to get an existing temp style first
-            objStyle = doc.objectStyles.itemByName(styleName);
-        } catch (_e) {}
-        if (!objStyle || !objStyle.isValid) {
-            // Create a new temporary object style
-            objStyle = doc.objectStyles.add();
-            objStyle.name = styleName;
-
-            // Ensure this style is not based on anything to avoid accidental inheritance
-            try {
-                objStyle.basedOn = doc.objectStyles.itemByName("[None]");
-            } catch (_b0) {}
-
-            // Set clean properties - no stroke, no fill, no auto-sizing
-            try {
-                objStyle.enableStroke = false;
-            } catch (_s1) {}
-            try {
-                objStyle.enableFill = false;
-            } catch (_s2) {}
-            try {
-                objStyle.strokeWeight = 0;
-            } catch (_s2w) {}
-            try {
-                objStyle.fillColor = doc.swatches.itemByName("[None]");
-            } catch (_fc) {}
-            try {
-                objStyle.strokeColor = doc.swatches.itemByName("[None]");
-            } catch (_sc) {}
-            try {
-                objStyle.textFramePreferences.autoSizingType = AutoSizingTypeEnum.OFF;
-            } catch (_s3) {}
-            try {
-                objStyle.textFramePreferences.useNoLineBreaksForAutoSizing = false;
-            } catch (_s4) {}
-            try {
-                objStyle.textFramePreferences.insetSpacing = [0, 0, 0, 0];
-            } catch (_sInset) {}
-            try {
-                objStyle.textFramePreferences.firstBaselineOffset = FirstBaseline.CAP_HEIGHT;
-            } catch (_fb) {}
-        }
-
-        return objStyle;
-    }
-
-    // Create temporary paragraph style with clean properties for watermarks
-    function createWatermarkParagraphStyle(doc, textLength, pageWidth, pageHeight) {
-        var styleName = "__TEMP_WM_PARAGRAPH__";
-        var paraStyle;
-
-        try {
-            // Try to get existing temp style first
-            paraStyle = doc.paragraphStyles.itemByName(styleName);
-        } catch (_e) {}
-        if (!paraStyle || !paraStyle.isValid) {
-            // Create new temporary paragraph style based on [No Paragraph Style]
-            var baseStyle;
-            try {
-                baseStyle = doc.paragraphStyles.itemByName("[No Paragraph Style]");
-            } catch (_base) {
-                baseStyle = doc.paragraphStyles[0]; // Fallback to first available
-            }
-
-            paraStyle = doc.paragraphStyles.add();
-            paraStyle.name = styleName;
-            paraStyle.basedOn = baseStyle;
-
-            // Set clean text properties
-            try {
-                paraStyle.justification = Justification.CENTER_ALIGN;
-            } catch (_p1) {}
-            try {
-                paraStyle.numberedListStyle = app.numberedListStyles.itemByName("[None]");
-            } catch (_p2) {}
-            try {
-                paraStyle.bulletedListStyle = app.bulletedListStyles.itemByName("[None]");
-            } catch (_p3) {}
-            try {
-                paraStyle.numberingContinue = false;
-            } catch (_p4) {}
-            try {
-                paraStyle.numberingStartAt = 1;
-            } catch (_p5) {}
-
-            // Set font to specified sans serif bold with robust fallbacks
-            try {
-                // Prefer direct Bold face to avoid style resolution issues
-                paraStyle.appliedFont = app.fonts.itemByName("Arial\tBold");
-            } catch (_fb0) {
-                try {
-                    // Try constructing Bold via Regular + fontStyle if direct Bold not available
-                    paraStyle.appliedFont = app.fonts.itemByName("Arial\tRegular");
-                    paraStyle.fontStyle = "Bold";
-                } catch (_f1) {
-                    try {
-                        paraStyle.appliedFont = app.fonts.itemByName("Helvetica\tBold");
-                    } catch (_f2) {
-                        // Use system default if fonts not available
-                    }
-                }
-            }
-
-            // Normalize key text attributes to avoid inheriting from document styles
-            try {
-                paraStyle.hyphenation = false;
-            } catch (_hy) {}
-            try {
-                paraStyle.tracking = 0;
-            } catch (_tr) {}
-            try {
-                paraStyle.horizontalScale = 100;
-            } catch (_hs) {}
-            try {
-                paraStyle.verticalScale = 100;
-            } catch (_vs) {}
-            try {
-                paraStyle.ligatures = false;
-            } catch (_lg) {}
-            try {
-                paraStyle.kerningMethod = AutoKernType.METRICS;
-            } catch (_km) {}
-            try {
-                paraStyle.fillColor = doc.swatches.itemByName("[Black]");
-            } catch (_fc2) {}
-            try {
-                paraStyle.strokeColor = doc.swatches.itemByName("[None]");
-            } catch (_sc2) {}
-            try {
-                paraStyle.spaceBefore = 0;
-            } catch (_sb) {}
-            try {
-                paraStyle.spaceAfter = 0;
-            } catch (_sa) {}
-            try {
-                paraStyle.alignToBaseline = false;
-            } catch (_ab) {}
-            try {
-                paraStyle.composer = "Adobe Paragraph Composer";
-            } catch (_cp) {}
-            try {
-                paraStyle.appliedLanguage = app.languagesWithVendors.itemByName("[No Language]");
-            } catch (_lang1) {}
-            try {
-                if (!paraStyle.appliedLanguage || !paraStyle.appliedLanguage.isValid)
-                    paraStyle.appliedLanguage = app.languagesWithVendors.itemByName("English: USA");
-            } catch (_lang2) {}
-
-            // Calculate and set point size based on page dimensions and text length
-            try {
-                var diag = Math.sqrt(pageWidth * pageWidth + pageHeight * pageHeight);
-                var targetLen = diag * WM_DEFAULT_COVERAGE;
-                paraStyle.pointSize = Math.max(24, (targetLen / Math.max(1, textLength)) * 1.35);
-            } catch (_pSize) {
-                try {
-                    paraStyle.pointSize = 72;
-                } catch (_pSizeFallback) {}
-            }
-        }
-
-        return paraStyle;
-    }
-
-    // Remove temporary watermark styles from document
-    function removeWatermarkStyles(doc) {
-        try {
-            var objStyle = doc.objectStyles.itemByName("__TEMP_WM_OBJECT__");
-            if (objStyle.isValid) objStyle.remove();
-        } catch (_e1) {}
-
-        try {
-            var paraStyle = doc.paragraphStyles.itemByName("__TEMP_WM_PARAGRAPH__");
-            if (paraStyle.isValid) paraStyle.remove();
-        } catch (_e2) {}
-    }
-
     function applyWatermarkLayer(doc, text) {
-        if (!text || text === "") return null;
-
-        // Calculate average page dimensions for paragraph style sizing
-        var avgWidth = 0,
-            avgHeight = 0;
-        var pages = doc.pages;
-        for (var avgI = 0; avgI < pages.length; avgI++) {
-            var pb = pages[avgI].bounds;
-            avgWidth += pb[3] - pb[1];
-            avgHeight += pb[2] - pb[0];
+        if (typeof ExportUtils !== "undefined" && ExportUtils.applyWatermarkLayer) {
+            return ExportUtils.applyWatermarkLayer(doc, text);
         }
-        if (pages.length > 0) {
-            avgWidth /= pages.length;
-            avgHeight /= pages.length;
-        }
-
-        // Create temporary styles for clean watermark formatting
-        var tempObjStyle = createWatermarkObjectStyle(doc);
-        var tempParaStyle = createWatermarkParagraphStyle(doc, String(text).length, avgWidth, avgHeight);
-
-        // Create/find temp layer and move it to the top
-        var lyr;
-        try {
-            lyr = doc.layers.itemByName("__TEMP_WATERMARK__");
-            if (!lyr.isValid) lyr = doc.layers.add({ name: "__TEMP_WATERMARK__" });
-        } catch (_e0) {
-            lyr = doc.layers.add({ name: "__TEMP_WATERMARK__" });
-        }
-        lyr.locked = false;
-        lyr.visible = true;
-
-        // Move layer to the top of the stack to ensure watermark appears above all content
-        try {
-            lyr.move(LocationOptions.AT_BEGINNING);
-        } catch (_eMove) {}
-
-        var i;
-        for (i = 0; i < pages.length; i++) {
-            var p = pages[i];
-            pb = p.bounds; // [y1, x1, y2, x2]
-            var w = pb[3] - pb[1],
-                h = pb[2] - pb[0];
-
-            var tf = p.textFrames.add(lyr);
-            // Center a generous square frame; then rotate/center content.
-            var cx = pb[1] + w / 2,
-                cy = pb[0] + h / 2,
-                half = Math.max(w, h);
-            tf.geometricBounds = [cy - half / 2, cx - half / 2, cy + half / 2, cx + half / 2];
-
-            // Apply clean temporary object style
-            try {
-                tf.appliedObjectStyle = tempObjStyle;
-            } catch (_eObj) {}
-            // Normalize frame defaults to avoid new-document variations
-            try {
-                tf.textFramePreferences.insetSpacing = [0, 0, 0, 0];
-            } catch (_finset) {}
-            try {
-                tf.textFramePreferences.firstBaselineOffset = FirstBaseline.CAP_HEIGHT;
-            } catch (_ffb) {}
-
-            // Literal text only (no tokens/markers)
-            tf.contents = String(text);
-
-            // Apply clean temporary paragraph style (includes font, size, alignment)
-            var story = tf.parentStory;
-            try {
-                story.appliedParagraphStyle = tempParaStyle;
-            } catch (_ePara) {}
-
-            // Ensure no character style overrides and ignore text wrap for consistency
-            try {
-                var noneChar = doc.characterStyles.itemByName("[None]");
-                if (tf.texts && tf.texts.length > 0) {
-                    try {
-                        tf.texts[0].appliedCharacterStyle = noneChar;
-                    } catch (_cs) {}
-                    try {
-                        if (tf.texts[0].clearOverrides) tf.texts[0].clearOverrides();
-                    } catch (_co) {}
-                }
-            } catch (_eChar) {}
-            try {
-                tf.textFramePreferences.ignoreTextWrap = true;
-            } catch (_eWrap) {}
-            try {
-                tf.textFramePreferences.verticalJustification = VerticalJustification.CENTER_ALIGN;
-            } catch (_e3) {}
-
-            // Apply frame-level properties that cannot be set in paragraph style
-            // Opacity 65%
-            try {
-                tf.transparencySettings.blendingSettings.opacity = WM_DEFAULT_OPACITY;
-            } catch (_e4) {}
-
-            // Rotate and re-center
-            try {
-                tf.rotationAngle = WM_DEFAULT_ANGLE;
-            } catch (_e5) {}
-            try {
-                var gb = tf.geometricBounds,
-                    fx = (gb[1] + gb[3]) / 2,
-                    fy = (gb[0] + gb[2]) / 2;
-                tf.move(undefined, [cx - fx, cy - fy]);
-            } catch (_e6) {}
-        }
-        return lyr;
+        // Fallback: if ExportUtils isn't available, do nothing
+        return null;
     }
 
     function removeWatermarkLayer(doc, lyr) {
-        if (!lyr || !lyr.isValid) return;
-        try {
-            lyr.remove();
-        } catch (_e) {}
-        // Clean up temporary watermark styles
-        removeWatermarkStyles(doc);
+        if (typeof ExportUtils !== "undefined" && ExportUtils.removeWatermarkLayer) {
+            return ExportUtils.removeWatermarkLayer(doc, lyr);
+        }
+        // Fallback: attempt simple removal if utils not available
+        if (lyr && lyr.isValid) {
+            try {
+                lyr.remove();
+            } catch (_e) {}
+        }
     }
 
     var didSomething = false;
     var tmpWM = null;
 
+    // SECTION: Single Undo Wrapper & Preference Safety
+    // Wrap export work in one undo step and use Prefs.withSafePreferences to normalize
+    // global settings and restore them afterward.
     app.doScript(
         function () {
             function runExports() {
@@ -872,6 +605,8 @@ Usage:
         "Export PDF"
     );
 
+    // SECTION: Post-Export UI & Viewer Activation
+    // Notify the user and optionally bring a PDF viewer to the foreground via ExportUtils.
     if (didSomething) {
         notify("Export completed.");
 
@@ -881,35 +616,11 @@ Usage:
                 // Small delay to ensure dialog is dismissed and PDF is ready
                 $.sleep(300);
 
-                // Try to activate the PDF viewer application (system-specific)
-                var osName = $.os.toLowerCase();
-                if (osName.indexOf("windows") !== -1) {
-                    // Windows: Try to activate Adobe Acrobat/Reader
+                // Bring PDF viewer to front using shared helper
+                if (typeof ExportUtils !== "undefined" && ExportUtils.bringPdfViewerToFront) {
                     try {
-                        var cmd =
-                            'powershell -Command "Add-Type -AssemblyName Microsoft.VisualBasic; [Microsoft.VisualBasic.Interaction]::AppActivate(\\"Adobe\\")"';
-                        app.system(cmd);
-                    } catch (e) {}
-                } else if (osName.indexOf("macintosh") !== -1) {
-                    // macOS: Use AppleScript to bring PDF viewer to front
-                    try {
-                        var script =
-                            'tell application "System Events" to tell process "Preview" to set frontmost to true';
-                        app.doScript(script, ScriptLanguage.APPLESCRIPT_LANGUAGE);
-                    } catch (e) {
-                        // If Preview failed, try Adobe Acrobat/Reader
-                        try {
-                            var script2 =
-                                'tell application "System Events" to tell process "Adobe Acrobat" to set frontmost to true';
-                            app.doScript(script2, ScriptLanguage.APPLESCRIPT_LANGUAGE);
-                        } catch (e2) {
-                            try {
-                                var script3 =
-                                    'tell application "System Events" to tell process "Adobe Reader" to set frontmost to true';
-                                app.doScript(script3, ScriptLanguage.APPLESCRIPT_LANGUAGE);
-                            } catch (e3) {}
-                        }
-                    }
+                        ExportUtils.bringPdfViewerToFront();
+                    } catch (_ef) {}
                 }
             } catch (e) {
                 // Silently ignore focus errors - export was successful
@@ -919,6 +630,7 @@ Usage:
         notify("Nothing was exported.");
     }
 
+    // SECTION: Cleanup
     // Reset find/change preferences to avoid leaking state
     try {
         app.findTextPreferences = app.changeTextPreferences = NothingEnum.nothing;

@@ -18,6 +18,7 @@ Usage:
 - The script will export one PDF per variant layer to the 'PDF' subfolder: <base>-<layerName>.pdf
 */
 
+/* global FindChange, UIUtils, ExportUtils */
 (function () {
     // Load shared utilities (Shared/InDesignUtils.jsx)
     try {
@@ -25,6 +26,18 @@ Usage:
         var __utilsFile = File(__scriptFile.parent.parent + "/Shared/InDesignUtils.jsx");
         if (__utilsFile.exists) {
             $.evalFile(__utilsFile);
+
+            // Load Find/Change utilities explicitly
+            var __findChangeFile = File(__scriptFile.parent.parent + "/Shared/FindChangeUtils.jsx");
+            if (__findChangeFile.exists) $.evalFile(__findChangeFile);
+
+            // Load UI utilities
+            var __uiUtilsFile = File(__scriptFile.parent.parent + "/Shared/UIUtils.jsx");
+            if (__uiUtilsFile.exists) $.evalFile(__uiUtilsFile);
+
+            // Load Export utilities
+            var __exportUtilsFile = File(__scriptFile.parent.parent + "/Shared/ExportUtils.jsx");
+            if (__exportUtilsFile.exists) $.evalFile(__exportUtilsFile);
         } else {
             alert("Required utilities not found: " + __utilsFile.fsName);
             return;
@@ -42,15 +55,12 @@ Usage:
 
     var doc = InDesignUtils.Objects.getActiveDocument();
     if (!doc) {
-        InDesignUtils.UI.showMessage(
-            "Bulk Variant PDF Export",
-            "Open a document before running BulkVariantPDFReverse."
-        );
+        UIUtils.showMessage("Bulk Variant PDF Export", "Open a document before running BulkVariantPDFReverse.");
         return;
     }
 
     function notify(msg, title) {
-        return InDesignUtils.UI.alert(String(msg), title || "Bulk Variant PDF Export");
+        return UIUtils.alert(String(msg), title || "Bulk Variant PDF Export");
     }
 
     var totalPages = doc.pages.length;
@@ -108,7 +118,16 @@ Usage:
     }
 
     function sanitizeFilenamePart(s) {
-        return InDesignUtils.PDF.sanitizeFilenamePart(s, "_");
+        try {
+            if (typeof ExportUtils !== "undefined" && ExportUtils.sanitizeFilenamePart) {
+                return ExportUtils.sanitizeFilenamePart(s, "_");
+            }
+        } catch (_) {}
+        // Final fallback (keep behavior consistent)
+        var str = String(s || "");
+        var bad = ["/", "\\", ":", "*", "?", '"', "<", ">", "|"];
+        for (var i = 0; i < bad.length; i++) str = str.split(bad[i]).join("_");
+        return str;
     }
 
     function getPdfSubfolder(d) {
@@ -239,9 +258,9 @@ Usage:
         return;
     }
 
-    InDesignUtils.FindChange.withCleanPrefs(function () {
+    FindChange.withCleanPrefs(function () {
         // Progress (shared)
-        var __pw = InDesignUtils.UI.createProgressWindow("Exporting Variant PDFs", {
+        var __pw = UIUtils.createProgressWindow("Exporting Variant PDFs", {
             width: 520,
             initialText: "Starting…"
         });
