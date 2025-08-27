@@ -10,26 +10,24 @@
  * Version: 1.0.0
  */
 
-// Ensure namespace exists
-if (typeof InDesignUtils === "undefined") InDesignUtils = {};
-
-/**
- * Scope Utilities
- */
-InDesignUtils.Scope = InDesignUtils.Scope || {};
+/* global ScopeUtils: true */
+// Standalone Scope utilities (ES3-safe)
+if (typeof ScopeUtils === "undefined") {
+    ScopeUtils = {};
+}
 
 /**
  * Resolve scope targets based on scope type
  * @param {string} scope - Scope type: 'allDocs', 'doc', 'page', 'story', 'frame', 'selection'
  * @returns {Array} Array of resolved targets
  */
-InDesignUtils.Scope.resolveScopeTargets = function (scope) {
+ScopeUtils.resolveScopeTargets = function (scope) {
     var tgts = [];
     if (scope === "allDocs") {
         if (!app.documents || app.documents.length === 0) {
             // Use UI.alert if available, otherwise fallback to alert
-            if (InDesignUtils.UI && InDesignUtils.UI.alert) {
-                InDesignUtils.UI.alert("No open documents.");
+            if (ScopeUtils && ScopeUtils.alert) {
+                ScopeUtils.alert("No open documents.");
             } else {
                 alert("No open documents.");
             }
@@ -50,15 +48,15 @@ InDesignUtils.Scope.resolveScopeTargets = function (scope) {
             if (doc && doc.isValid) {
                 tgts.push(doc);
             } else {
-                if (InDesignUtils.UI && InDesignUtils.UI.alert) {
-                    InDesignUtils.UI.alert("No active document.");
+                if (ScopeUtils && ScopeUtils.alert) {
+                    ScopeUtils.alert("No active document.");
                 } else {
                     alert("No active document.");
                 }
             }
         } catch (e2) {
-            if (InDesignUtils.UI && InDesignUtils.UI.alert) {
-                InDesignUtils.UI.alert("No active document.");
+            if (ScopeUtils && ScopeUtils.alert) {
+                ScopeUtils.alert("No active document.");
             } else {
                 alert("No active document.");
             }
@@ -81,8 +79,8 @@ InDesignUtils.Scope.resolveScopeTargets = function (scope) {
             }
         } catch (e3) {}
         if (!story) {
-            if (InDesignUtils.UI && InDesignUtils.UI.alert) {
-                InDesignUtils.UI.alert("Select some text or a text frame to target its story.");
+            if (ScopeUtils && ScopeUtils.alert) {
+                ScopeUtils.alert("Select some text or a text frame to target its story.");
             } else {
                 alert("Select some text or a text frame to target its story.");
             }
@@ -98,8 +96,8 @@ InDesignUtils.Scope.resolveScopeTargets = function (scope) {
             else if (app.activeWindow) page = app.activeWindow.activePage;
         } catch (e4) {}
         if (!page) {
-            if (InDesignUtils.UI && InDesignUtils.UI.alert) {
-                InDesignUtils.UI.alert("No active page. Open a layout window and try again.");
+            if (ScopeUtils && ScopeUtils.alert) {
+                ScopeUtils.alert("No active page. Open a layout window and try again.");
             } else {
                 alert("No active page. Open a layout window and try again.");
             }
@@ -138,8 +136,8 @@ InDesignUtils.Scope.resolveScopeTargets = function (scope) {
             }
         } catch (e7) {}
         if (tgts.length === 0) {
-            if (InDesignUtils.UI && InDesignUtils.UI.alert) {
-                InDesignUtils.UI.alert("No text found on the active page.");
+            if (ScopeUtils && ScopeUtils.alert) {
+                ScopeUtils.alert("No text found on the active page.");
             } else {
                 alert("No text found on the active page.");
             }
@@ -148,8 +146,8 @@ InDesignUtils.Scope.resolveScopeTargets = function (scope) {
     }
     if (scope === "frame") {
         if (!app.selection || app.selection.length === 0) {
-            if (InDesignUtils.UI && InDesignUtils.UI.alert) {
-                InDesignUtils.UI.alert("Select one or more frames.");
+            if (ScopeUtils && ScopeUtils.alert) {
+                ScopeUtils.alert("Select one or more frames.");
             } else {
                 alert("Select one or more frames.");
             }
@@ -196,8 +194,8 @@ InDesignUtils.Scope.resolveScopeTargets = function (scope) {
             }
         }
         if (tgts.length === 0) {
-            if (InDesignUtils.UI && InDesignUtils.UI.alert) {
-                InDesignUtils.UI.alert("No text found in the selected frame(s).");
+            if (ScopeUtils && ScopeUtils.alert) {
+                ScopeUtils.alert("No text found in the selected frame(s).");
             } else {
                 alert("No text found in the selected frame(s).");
             }
@@ -206,8 +204,8 @@ InDesignUtils.Scope.resolveScopeTargets = function (scope) {
     }
     if (scope === "selection") {
         if (!app.selection || app.selection.length === 0) {
-            if (InDesignUtils.UI && InDesignUtils.UI.alert) {
-                InDesignUtils.UI.alert("Make a text selection first.");
+            if (ScopeUtils && ScopeUtils.alert) {
+                ScopeUtils.alert("Make a text selection first.");
             } else {
                 alert("Make a text selection first.");
             }
@@ -223,8 +221,8 @@ InDesignUtils.Scope.resolveScopeTargets = function (scope) {
             if (selTxt && selTxt.isValid) tgts.push(selTxt);
         }
         if (tgts.length === 0) {
-            if (InDesignUtils.UI && InDesignUtils.UI.alert) {
-                InDesignUtils.UI.alert("The selection does not contain editable text.");
+            if (ScopeUtils && ScopeUtils.alert) {
+                ScopeUtils.alert("The selection does not contain editable text.");
             } else {
                 alert("The selection does not contain editable text.");
             }
@@ -240,7 +238,7 @@ InDesignUtils.Scope.resolveScopeTargets = function (scope) {
  * @param {Object} options - Configuration options
  * @returns {Object} Scope UI elements and helper functions
  */
-InDesignUtils.Scope.createScopePanel = function (container, options) {
+ScopeUtils.createScopePanel = function (container, options) {
     options = options || {};
     var scopePanel = container.add("panel", undefined, options.title || "Scope");
     scopePanel.orientation = "column";
@@ -311,8 +309,12 @@ InDesignUtils.Scope.createScopePanel = function (container, options) {
         rbSelection = scopePanel.add("radiobutton", undefined, "Selected Text");
     }
 
-    // Defaults
-    rbDoc.value = true; // default scope
+    // Defaults - if there is selected text, default to selection scope; otherwise document scope
+    if (hasRangedTextSelection) {
+        rbSelection.value = true;
+    } else {
+        rbDoc.value = true;
+    }
 
     // Enablement rules: show but disable if not applicable
     rbSelection.enabled = hasRangedTextSelection; // Disable for caret-only selection

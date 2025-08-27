@@ -1,141 +1,36 @@
 /**
- * InDesign Shared Utilities
- * Common functions and patterns for InDesign scripts
+ * InDesignUtils.jsx — Shared utilities for InDesign (ExtendScript, ES3-safe)
+ * Namespace: InDesignUtils
+ *
+ * Provides:
+ *  - Error handling helpers: InDesignUtils.Error.safe, InDesignUtils.Error.isValid
+ *  - Object helpers: InDesignUtils.Objects.getActiveDocument, getSelection, findOversetFrames
+ *  - Layer helpers: InDesignUtils.Layers.setVisibility, hideAll, restoreVisibility
+ *  - Preferences helpers: InDesignUtils.Prefs.withUnits, withoutRedraw, withSafePreferences
+ *  - General helpers: InDesignUtils.Utils.getScriptInfo, loadUtility
  *
  * Usage:
  *   var scriptFile = File($.fileName);
  *   var utilsFile = File(scriptFile.parent + "/Shared/InDesignUtils.jsx");
  *   if (utilsFile.exists) $.evalFile(utilsFile);
  *
+ * Notes:
+ *  Load helper files explicitly if needed:
+ *  - UI helpers were moved to Scripts/Shared/UIUtils.jsx (namespace UIUtils).ScopeUtils
+ *  - Find/Change helpers live in Scripts/Shared/FindChangeUtils.jsx.ScopeUtils
+ *  - Scope helpers live in Scripts/Shared/ScopeUtils.jsx.ScopeUtils
+ *  - Export and PDF helpers live in Scripts/Shared/ExportUtils.jsx.ScopeUtils
+ *
  * Version: 1.0.0
  */
 
-// Namespace to avoid conflicts
+// Ensure namespace exists (avoid globals conflicts)
 if (typeof InDesignUtils === "undefined") InDesignUtils = {};
 
 InDesignUtils.version = "1.0.0";
 
 /**
- * Dialog and UI Helpers
- */
-InDesignUtils.UI = InDesignUtils.UI || {};
-
-/**
- * Show a message dialog with consistent styling
- * @param {string} title - Dialog title
- * @param {string} message - Message to display
- * @param {Object} options - Optional dialog options
- */
-InDesignUtils.UI.showMessage = function (title, message, options) {
-    options = options || {};
-    try {
-        var win = new Window("dialog", title || "Message");
-        win.orientation = "column";
-        win.margins = options.margins || 16;
-        win.spacing = options.spacing || 12;
-
-        var txt = win.add("statictext", undefined, String(message), { multiline: true });
-        txt.characters = options.characters || 60;
-
-        var row = win.add("group");
-        row.alignment = "right";
-        row.spacing = 8;
-        var ok = row.add("button", undefined, "OK", { name: "ok" });
-        win.defaultElement = ok;
-        win.cancelElement = ok;
-
-        if (options.width) win.preferredSize.width = options.width;
-        if (options.height) win.preferredSize.height = options.height;
-
-        win.center();
-        return win.show();
-    } catch (e) {
-        // Fallback to console
-        try {
-            $.writeln(String(message));
-        } catch (_) {}
-        return 1;
-    }
-};
-
-/**
- * Safe alert function with multiple fallbacks
- * @param {string} message - Message to display
- * @param {string} title - Optional title
- */
-InDesignUtils.UI.alert = function (message, title) {
-    try {
-        return InDesignUtils.UI.showMessage(title || "Alert", String(message));
-    } catch (e) {
-        try {
-            if (typeof alert === "function") return alert(message);
-        } catch (_) {
-            try {
-                $.writeln(String(message));
-            } catch (__) {}
-        }
-    }
-    return 1;
-};
-
-/**
- * Create a progress window
- * @param {string} title - Progress window title
- * @param {Object} options - Optional configuration
- * @returns {Object} Progress window controller
- */
-InDesignUtils.UI.createProgressWindow = function (title, options) {
-    options = options || {};
-    var progressWin = null;
-    var progressBar = null;
-    var progressLabel = null;
-
-    try {
-        progressWin = new Window("palette", title || "Working...");
-        progressWin.orientation = "column";
-        progressWin.margins = 16;
-        progressWin.spacing = 12;
-        progressWin.preferredSize.width = options.width || 400;
-
-        if (options.showLabel !== false) {
-            progressLabel = progressWin.add("statictext", undefined, options.initialText || "Processing...");
-        }
-
-        progressBar = progressWin.add("progressbar", undefined, 0, 100);
-        progressBar.preferredSize.width = (options.width || 400) - 32;
-
-        progressWin.show();
-
-        return {
-            window: progressWin,
-            bar: progressBar,
-            label: progressLabel,
-
-            update: function (value, text) {
-                try {
-                    if (typeof value === "number") progressBar.value = Math.max(0, Math.min(100, value));
-                    if (text && progressLabel) progressLabel.text = String(text);
-                    progressWin.update();
-                } catch (_) {}
-            },
-
-            close: function () {
-                try {
-                    if (progressWin) progressWin.close();
-                    progressWin = null;
-                } catch (_) {}
-            }
-        };
-    } catch (e) {
-        return {
-            update: function () {},
-            close: function () {}
-        };
-    }
-};
-
-/**
- * Error Handling Utilities
+ * SECTION: Error Handling Utilities
  */
 InDesignUtils.Error = InDesignUtils.Error || {};
 
@@ -173,7 +68,7 @@ InDesignUtils.Error.isValid = function (obj) {
 };
 
 /**
- * InDesign Object Utilities
+ * SECTION: InDesign Object Utilities
  */
 InDesignUtils.Objects = InDesignUtils.Objects || {};
 
@@ -248,7 +143,7 @@ InDesignUtils.Objects.findOversetFrames = function (document) {
 };
 
 /**
- * Layer Management Utilities
+ * SECTION: Layer Management Utilities
  */
 InDesignUtils.Layers = InDesignUtils.Layers || {};
 
@@ -314,7 +209,7 @@ InDesignUtils.Layers.restoreVisibility = function (visibilityState) {
 };
 
 /**
- * Preferences Management
+ * SECTION: Preferences Management
  */
 InDesignUtils.Prefs = InDesignUtils.Prefs || {};
 
@@ -391,91 +286,22 @@ InDesignUtils.Prefs.withSafePreferences = function (fn, tempPrefs) {
 };
 
 /**
- * Find/Change Utilities
- */
-InDesignUtils.FindChange = InDesignUtils.FindChange || {};
-
-/**
- * Execute find/change operation with automatic preference cleanup
- * @param {Function} fn - Function that performs find/change operations
- * @param {Object} scope - Optional search scope (default: active document)
- * @param {Object} options - Optional configuration {inclusive: boolean}
- * @returns {*} Function result
- */
-InDesignUtils.FindChange.withCleanPrefs = function (fn, scope, options) {
-    options = options || {};
-    var savedFindOptions = null;
-
-    try {
-        // Clear preferences before
-        app.findTextPreferences = app.changeTextPreferences = NothingEnum.nothing;
-
-        // Enable inclusive find options for comprehensive scanning if requested
-        if (options.inclusive) {
-            savedFindOptions = {};
-            try {
-                var fco = app.findChangeTextOptions;
-                savedFindOptions.includeFootnotes = fco.includeFootnotes;
-                savedFindOptions.includeHiddenLayers = fco.includeHiddenLayers;
-                savedFindOptions.includeLockedLayersForFind = fco.includeLockedLayersForFind;
-                savedFindOptions.includeLockedStoriesForFind = fco.includeLockedStoriesForFind;
-                savedFindOptions.includeMasterPages = fco.includeMasterPages;
-
-                fco.includeFootnotes = true;
-                fco.includeHiddenLayers = true;
-                fco.includeLockedLayersForFind = true;
-                fco.includeLockedStoriesForFind = true;
-                fco.includeMasterPages = true;
-                fco.includeOversetText = true;
-            } catch (_) {}
-        }
-
-        return fn(scope || InDesignUtils.Objects.getActiveDocument());
-    } finally {
-        // Restore find options if they were modified
-        if (savedFindOptions) {
-            try {
-                var restoreFco = app.findChangeTextOptions;
-                if (typeof savedFindOptions.includeFootnotes !== "undefined")
-                    restoreFco.includeFootnotes = savedFindOptions.includeFootnotes;
-                if (typeof savedFindOptions.includeHiddenLayers !== "undefined")
-                    restoreFco.includeHiddenLayers = savedFindOptions.includeHiddenLayers;
-                if (typeof savedFindOptions.includeLockedLayersForFind !== "undefined")
-                    restoreFco.includeLockedLayersForFind = savedFindOptions.includeLockedLayersForFind;
-                if (typeof savedFindOptions.includeLockedStoriesForFind !== "undefined")
-                    restoreFco.includeLockedStoriesForFind = savedFindOptions.includeLockedStoriesForFind;
-                if (typeof savedFindOptions.includeMasterPages !== "undefined")
-                    restoreFco.includeMasterPages = savedFindOptions.includeMasterPages;
-            } catch (_) {}
-        }
-
-        // Clear preferences after
-        try {
-            app.findTextPreferences = app.changeTextPreferences = NothingEnum.nothing;
-        } catch (_) {}
-    }
-};
-
-/**
- * Scope Utilities - Load from separate module
- */
-// Load ScopeUtils.jsx if available for backward compatibility
-try {
-    var scriptInfo = InDesignUtils.Utils.getScriptInfo();
-    if (scriptInfo.folder) {
-        var scopeUtilsFile = File(scriptInfo.folder + "/ScopeUtils.jsx");
-        if (scopeUtilsFile.exists) {
-            $.evalFile(scopeUtilsFile);
-        }
-    }
-} catch (e) {
-    // ScopeUtils not available - scripts should load it directly if needed
-}
-
-/**
- * Utility Functions
+ * SECTION: General Utility Functions
  */
 InDesignUtils.Utils = InDesignUtils.Utils || {};
+
+/**
+ * Format numbers with comma thousands separators
+ * @param {number} n - Number to format
+ * @returns {string} Formatted number string
+ */
+InDesignUtils.Utils.formatNumber = function (n) {
+    var s = String(n);
+    var isNeg = s.charAt(0) === "-";
+    var x = isNeg ? s.substring(1) : s;
+    var formatted = x.replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1,");
+    return isNeg ? "-" + formatted : formatted;
+};
 
 /**
  * Get script file information
@@ -527,32 +353,3 @@ InDesignUtils.Utils.loadUtility = function (fileName, required) {
         return false;
     }
 };
-
-/**
- * PDF Utilities
- */
-InDesignUtils.PDF = InDesignUtils.PDF || {};
-
-/**
- * Sanitize a string for safe use in filenames (single path segment)
- * Replaces invalid characters with the provided replacement (default: underscore)
- * Invalid characters: \/ : * ? " < > |
- */
-InDesignUtils.PDF.sanitizeFilenamePart = function (s, replacement) {
-    var rep = replacement == null ? "_" : String(replacement);
-    try {
-        return String(s || "").replace(new RegExp('[\\/:*?"<>|]', "g"), rep);
-    } catch (e) {
-        // Extremely defensive fallback using chained splits (should never be needed)
-        var out = String(s || "");
-        var bad = ["/", "\\", ":", "*", "?", '"', "<", ">", "|"];
-        for (var i = 0; i < bad.length; i++) {
-            var ch = bad[i];
-            // split-join fallback because some engines struggle with edge-case regex construction
-            out = out.split(ch).join(rep);
-        }
-        return out;
-    }
-};
-
-// Utilities are available via the InDesignUtils namespace
