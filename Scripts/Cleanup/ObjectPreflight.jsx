@@ -9,15 +9,20 @@
  *     Bottom Right: Close, Fix, Fix and Next, Fix All  (Fix buttons disabled in Reverse mode)
  */
 
+/* global UIUtils */
 // Load shared utilities
 var scriptFile = File($.fileName);
 var utilsFile = File(scriptFile.parent.parent + "/Shared/InDesignUtils.jsx");
 if (utilsFile.exists) $.evalFile(utilsFile);
 
+// Load UI utilities
+var uiUtilsFile = File(scriptFile.parent.parent + "/Shared/UIUtils.jsx");
+if (uiUtilsFile.exists) $.evalFile(uiUtilsFile);
+
 // Fallback function for showMessage
 function showMessage(title, message) {
-    if (typeof InDesignUtils !== "undefined" && InDesignUtils.UI && InDesignUtils.UI.showMessage) {
-        return InDesignUtils.UI.showMessage(title, message);
+    if (typeof InDesignUtils !== "undefined" && UIUtils && UIUtils.showMessage) {
+        return UIUtils.showMessage(title, message);
     }
     // Fallback to basic dialog
     try {
@@ -220,12 +225,8 @@ function isValidObject(obj) {
                     // Show progress for large documents
                     var progress = null;
                     if (frames.length > 50) {
-                        if (
-                            typeof InDesignUtils !== "undefined" &&
-                            InDesignUtils.UI &&
-                            InDesignUtils.UI.createProgressWindow
-                        ) {
-                            progress = InDesignUtils.UI.createProgressWindow("Checking Frame Positions", {
+                        if (typeof InDesignUtils !== "undefined" && UIUtils && UIUtils.createProgressWindow) {
+                            progress = UIUtils.createProgressWindow("Checking Frame Positions", {
                                 initialText: "Processing...",
                                 width: 400
                             });
@@ -283,12 +284,8 @@ function isValidObject(obj) {
                     // Show progress for large documents
                     var progress = null;
                     if (frames.length > 50) {
-                        if (
-                            typeof InDesignUtils !== "undefined" &&
-                            InDesignUtils.UI &&
-                            InDesignUtils.UI.createProgressWindow
-                        ) {
-                            progress = InDesignUtils.UI.createProgressWindow("Finding Styles Without X/Y", {
+                        if (typeof InDesignUtils !== "undefined" && UIUtils && UIUtils.createProgressWindow) {
+                            progress = UIUtils.createProgressWindow("Finding Styles Without X/Y", {
                                 initialText: "Processing...",
                                 width: 400
                             });
@@ -333,6 +330,16 @@ function isValidObject(obj) {
                         if (progress) progress.close();
                     }
                     return out;
+                }
+
+                // Check if there are any results in either mode before creating the dialog
+                var normalResults = buildRowsNormal();
+                var reverseResults = buildRowsReverse();
+
+                // If no results found in either category, show message and return
+                if (normalResults.length === 0 && reverseResults.length === 0) {
+                    showMessage("Object Position Checker", "No results found. All text boxes are good to go!");
+                    return;
                 }
 
                 // --- UI (compact, guaranteed right-aligned buttons) ---
@@ -416,7 +423,7 @@ function isValidObject(obj) {
 
                 function render(mode) {
                     // mode: 'normal' | 'reverse'
-                    rows = mode === "reverse" ? buildRowsReverse() : buildRowsNormal();
+                    rows = mode === "reverse" ? reverseResults : normalResults;
                     list.removeAll();
                     for (var i = 0; i < rows.length; i++) {
                         var it = list.add("item", String(rows[i].pageName));

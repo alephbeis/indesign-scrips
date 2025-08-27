@@ -3,6 +3,7 @@
  Adds a multi-select dialog (with "All") to choose what to clean.
  Preserves behavior and order. Adds a guard for no open document. Resets GREP prefs safely.
 */
+/* global UIUtils, ScopeUtils, FindChange */
 
 (function () {
     // Load shared utilities
@@ -12,6 +13,22 @@
         $.evalFile(utilsFile);
     } else {
         throw new Error("InDesignUtils.jsx not found. Required for this script to function.");
+    }
+
+    // Load enhanced find/change utilities
+    var findChangeFile = File(scriptFile.parent.parent + "/Shared/FindChangeUtils.jsx");
+    if (findChangeFile.exists) {
+        $.evalFile(findChangeFile);
+    } else {
+        throw new Error("FindChangeUtils.jsx not found. Required for this script to function.");
+    }
+
+    // Load UI utilities
+    var uiUtilsFile = File(scriptFile.parent.parent + "/Shared/UIUtils.jsx");
+    if (uiUtilsFile.exists) {
+        $.evalFile(uiUtilsFile);
+    } else {
+        throw new Error("UIUtils.jsx not found. Required for this script to function.");
     }
 
     // Load ScopeUtils for scope functionality
@@ -25,7 +42,7 @@
     // Check for active document
     var activeDoc = InDesignUtils.Objects.getActiveDocument();
     if (!activeDoc) {
-        InDesignUtils.UI.alert("Open a document before running CharacterCleanup.");
+        UIUtils.alert("Open a document before running CharacterCleanup.");
         return;
     }
 
@@ -112,7 +129,7 @@
     var cbGuides = optionsPanel.add("checkbox", undefined, "Remove non-master guides");
 
     // Create scope panel using shared utility
-    var scopeUI = InDesignUtils.Scope.createScopePanel(row);
+    var scopeUI = ScopeUtils.createScopePanel(row);
 
     // Defaults
     allCb.value = true;
@@ -192,7 +209,7 @@
     var hasTextTargets = false;
     if (wantsText) {
         var selectedScope = scopeUI.getSelectedScope();
-        targets = InDesignUtils.Scope.resolveScopeTargets(selectedScope);
+        targets = ScopeUtils.resolveScopeTargets(selectedScope);
         hasTextTargets = targets && targets.length > 0;
         if (!hasTextTargets && !wantsGuides) {
             return; // nothing to do
@@ -263,103 +280,137 @@
     if (changesApplied.length === 0) {
         message = "Nothing to clean - no changes were made.";
     } else {
-        // Remove duplicates from changesApplied
+        // Remove duplicates from changesApplied (preserve order) in O(n)
         var uniqueChanges = [];
+        var seen = {};
         for (var i = 0; i < changesApplied.length; i++) {
-            var exists = false;
-            for (var k = 0; k < uniqueChanges.length; k++) {
-                if (uniqueChanges[k] === changesApplied[i]) {
-                    exists = true;
-                    break;
-                }
-            }
-            if (!exists) {
-                uniqueChanges.push(changesApplied[i]);
+            var item = changesApplied[i];
+            if (!seen[item]) {
+                seen[item] = true;
+                uniqueChanges.push(item);
             }
         }
+        // Build message
         message = "Character cleanup completed successfully!\nThe following actions were performed:\n\n";
         for (var j = 0; j < uniqueChanges.length; j++) {
             message += "• " + uniqueChanges[j] + "\n";
         }
     }
-    InDesignUtils.UI.showMessage("Cleanup Complete", message);
+    UIUtils.showMessage("Cleanup Complete", message);
 
     function pushPairs(dest, src) {
         for (var i = 0; i < src.length; i++) dest.push(src[i]);
     }
 
     function changeTargets(find, replaceTo, tgts) {
-        var any = false;
-        return InDesignUtils.FindChange.withCleanPrefs(function () {
-            for (var ti = 0; ti < tgts.length; ti++) {
-                var t = tgts[ti];
-                try {
-                    app.findGrepPreferences.findWhat = find;
-                    app.changeGrepPreferences.changeTo = replaceTo;
-                    var foundItems = t.findGrep();
-                    if (foundItems && foundItems.length > 0) {
-                        t.changeGrep(true);
-                        any = true;
+        var results = FindChange.runFindChange(
+            {
+                engine: "grep",
+                find: { findWhat: find },
+                change: { changeTo: replaceTo },
+                scope: "document", // Will be overridden by custom runner
+                target: tgts[0] // Placeholder, custom runner handles all targets
+            },
+            function (config, results) {
+                // Custom runner to handle multiple targets
+                return FindChange.withFindChange("grep", {}, function () {
+                    for (var ti = 0; ti < tgts.length; ti++) {
+                        var t = tgts[ti];
+                        try {
+                            app.findGrepPreferences.findWhat = find;
+                            app.changeGrepPreferences.changeTo = replaceTo;
+                            var foundItems = t.findGrep();
+                            var foundCount = foundItems ? foundItems.length : 0;
+                            results.totalFound += foundCount;
+
+                            if (foundCount > 0) {
+                                t.changeGrep(true);
+                                results.totalChanged += foundCount;
+                            }
+                        } catch (e) {
+                            results.errors.push({
+                                target: FindChange._getTargetName(t),
+                                error: e.toString()
+                            });
+                        }
                     }
-                } catch (e) {
-                    // Continue with other targets on error
-                }
+                    return results;
+                });
             }
-            return any;
-        });
+        );
+
+        return results.totalChanged > 0;
     }
 
     function changeIterativeTargets(find, replaceTo, tgts) {
-        var any = false;
-        return InDesignUtils.FindChange.withCleanPrefs(function () {
-            for (var ti = 0; ti < tgts.length; ti++) {
-                var t = tgts[ti];
-                var maxIterations = 50; // hard cap safeguard
-                var iterations = 0;
-                var noProgressStreak = 0; // break if we detect no progress across consecutive passes
+        var results = FindChange.runFindChange(
+            {
+                engine: "grep",
+                find: { findWhat: find },
+                change: { changeTo: replaceTo },
+                scope: "document", // Will be overridden by custom runner
+                target: tgts[0] // Placeholder, custom runner handles all targets
+            },
+            function (config, results) {
+                // Custom runner with iterative logic
+                return FindChange.withFindChange("grep", {}, function () {
+                    for (var ti = 0; ti < tgts.length; ti++) {
+                        var t = tgts[ti];
+                        var maxIterations = 50; // hard cap safeguard
+                        var iterations = 0;
+                        var noProgressStreak = 0; // break if we detect no progress across consecutive passes
 
-                while (iterations < maxIterations) {
-                    var beforeCount = 0;
-                    try {
-                        app.findGrepPreferences.findWhat = find;
-                        app.changeGrepPreferences.changeTo = replaceTo;
-                        var foundItems = t.findGrep();
-                        beforeCount = foundItems ? foundItems.length : 0;
-                        if (!foundItems || beforeCount === 0) {
-                            break; // nothing to do
+                        while (iterations < maxIterations) {
+                            var beforeCount = 0;
+                            try {
+                                app.findGrepPreferences.findWhat = find;
+                                app.changeGrepPreferences.changeTo = replaceTo;
+                                var foundItems = t.findGrep();
+                                beforeCount = foundItems ? foundItems.length : 0;
+                                if (!foundItems || beforeCount === 0) {
+                                    break; // nothing to do
+                                }
+                                t.changeGrep(true);
+                                results.totalFound += beforeCount;
+                                results.totalChanged += beforeCount;
+                            } catch (e) {
+                                // Unexpected error: stop iterating on this target
+                                results.errors.push({
+                                    target: FindChange._getTargetName(t),
+                                    error: e.toString()
+                                });
+                                break;
+                            }
+
+                            // After the change, check if we are making progress
+                            var afterCount = 0;
+                            try {
+                                app.findGrepPreferences.findWhat = find;
+                                var checkItems = t.findGrep();
+                                afterCount = checkItems ? checkItems.length : 0;
+                            } catch (e2) {
+                                afterCount = 0; // if we cannot evaluate, err on the side of exiting
+                            }
+
+                            if (afterCount >= beforeCount) {
+                                noProgressStreak++;
+                            } else {
+                                noProgressStreak = 0;
+                            }
+                            if (noProgressStreak >= 2) {
+                                // No meaningful progress across iterations; avoid potential infinite loop
+                                break;
+                            }
+
+                            iterations++;
                         }
-                        t.changeGrep(true);
-                        any = true;
-                    } catch (e) {
-                        // Unexpected error: stop iterating on this target
-                        break;
                     }
-
-                    // After the change, check if we are making progress
-                    var afterCount = 0;
-                    try {
-                        app.findGrepPreferences.findWhat = find;
-                        var checkItems = t.findGrep();
-                        afterCount = checkItems ? checkItems.length : 0;
-                    } catch (e2) {
-                        afterCount = 0; // if we cannot evaluate, err on the side of exiting
-                    }
-
-                    if (afterCount >= beforeCount) {
-                        noProgressStreak++;
-                    } else {
-                        noProgressStreak = 0;
-                    }
-                    if (noProgressStreak >= 2) {
-                        // No meaningful progress across iterations; avoid potential infinite loop
-                        break;
-                    }
-
-                    iterations++;
-                }
+                    return results;
+                });
             }
-            return any;
-        });
+        );
+
+        return results.totalChanged > 0;
     }
 
     // Remove non-master guides according to selected scope

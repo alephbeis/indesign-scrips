@@ -7,6 +7,7 @@
  - Targets typed numbers (not auto-numbering) with pattern: ^\d+\.\s*
  - Follows repository conventions for guards, alerts, and safe GREP pref resets.
 */
+/* global ScopeUtils, FindChange, UIUtils */
 
 // Load shared utilities
 try {
@@ -14,23 +15,31 @@ try {
     var utilsFile = File(scriptFile.parent.parent + "/Shared/InDesignUtils.jsx");
     if (utilsFile.exists) $.evalFile(utilsFile);
 
+    // Load Find/Change utilities explicitly (ensures GREP cleanup support)
+    var findChangeFile = File(scriptFile.parent.parent + "/Shared/FindChangeUtils.jsx");
+    if (findChangeFile.exists) $.evalFile(findChangeFile);
+
     // Load scope utilities
     var scopeUtilsFile = File(scriptFile.parent.parent + "/Shared/ScopeUtils.jsx");
     if (scopeUtilsFile.exists) $.evalFile(scopeUtilsFile);
+
+    // Load UI utilities
+    var uiUtilsFile = File(scriptFile.parent.parent + "/Shared/UIUtils.jsx");
+    if (uiUtilsFile.exists) $.evalFile(uiUtilsFile);
 } catch (e) {}
 
 (function () {
     // Guard: ensure InDesign and a document are available
     var activeDoc = InDesignUtils.Objects.getActiveDocument();
     if (!activeDoc) {
-        InDesignUtils.UI.alert("Open a document before running RemoveNumericPrefixes.");
+        UIUtils.alert("Open a document before running RemoveNumericPrefixes.");
         return;
     }
 
     var pattern = "^\\d+\\.\\s+"; // explicit numeric prefixes at start of paragraphs (requires space after dot)
 
     // Pre-scan: Check if there are any occurrences before showing the dialog
-    var initialTargets = InDesignUtils.Scope.resolveScopeTargets("doc"); // Start with document scope for initial scan
+    var initialTargets = ScopeUtils.resolveScopeTargets("doc"); // Start with document scope for initial scan
     if (!initialTargets || initialTargets.length === 0) {
         return;
     }
@@ -40,7 +49,7 @@ try {
 
     // If no occurrences found, show confirmation and exit
     if (initialCount === 0) {
-        InDesignUtils.UI.alert("No explicit numeric prefixes were found in the document.");
+        UIUtils.alert("No explicit numeric prefixes were found in the document.");
         return;
     }
 
@@ -52,7 +61,7 @@ try {
 
     var action = selection.action;
     if (action === "remove") {
-        var targets = InDesignUtils.Scope.resolveScopeTargets(selection.scope);
+        var targets = ScopeUtils.resolveScopeTargets(selection.scope);
         if (!targets || targets.length === 0) {
             return;
         }
@@ -89,7 +98,7 @@ try {
         leftPanel.preferredSize.width = 420;
 
         // Get initial matches for document scope
-        var initialTargets = InDesignUtils.Scope.resolveScopeTargets("doc");
+        var initialTargets = ScopeUtils.resolveScopeTargets("doc");
         var initialMatches = [];
         var matchItems = [];
 
@@ -140,7 +149,7 @@ try {
         for (var pk in pageSet) if (Object.prototype.hasOwnProperty.call(pageSet, pk)) pagesWithHits++;
 
         var summaryText =
-            formatNumber(count) +
+            InDesignUtils.Utils.formatNumber(count) +
             " occurrence" +
             (count === 1 ? "" : "s") +
             " across " +
@@ -194,9 +203,7 @@ try {
                 try {
                     // Validate that the match is still valid
                     if (!selectedMatch || !selectedMatch.isValid) {
-                        InDesignUtils.UI.alert(
-                            "The selected occurrence is no longer valid. The document may have changed."
-                        );
+                        UIUtils.alert("The selected occurrence is no longer valid. The document may have changed.");
                         return;
                     }
 
@@ -222,13 +229,13 @@ try {
                     // Close the dialog to show the navigation result
                     dialog.close(0);
                 } catch (e) {
-                    InDesignUtils.UI.alert("Could not navigate to the selected occurrence. Error: " + e.message);
+                    UIUtils.alert("Could not navigate to the selected occurrence. Error: " + e.message);
                 }
             }
         };
 
         // Create scope panel using shared utility
-        var scopeUI = InDesignUtils.Scope.createScopePanel(mainContainer);
+        var scopeUI = ScopeUtils.createScopePanel(mainContainer);
 
         // Bottom buttons
         var buttonGroup = dialog.add("group");
@@ -269,7 +276,7 @@ try {
         var matches = findMatchesAcrossTargets(pattern, targets);
         count = matches ? matches.length : 0;
         if (count === 0) {
-            InDesignUtils.UI.alert("There was nothing to delete.");
+            UIUtils.alert("There was nothing to delete.");
             return;
         }
 
@@ -283,9 +290,9 @@ try {
             "Remove Numeric Prefixes"
         );
 
-        InDesignUtils.UI.alert(
+        UIUtils.alert(
             "Removal completed.\n" +
-                formatNumber(count) +
+                InDesignUtils.Utils.formatNumber(count) +
                 " occurrence" +
                 (count === 1 ? " was" : "s were") +
                 " removed."
@@ -293,37 +300,41 @@ try {
     }
 
     function findMatchesAcrossTargets(pattern, targets) {
-        var results = [];
-        for (var i = 0; i < targets.length; i++) {
-            var t = targets[i];
+        return FindChange.withFindChange("grep", {}, function () {
+            var results = [];
             try {
-                var found = InDesignUtils.FindChange.withCleanPrefs(function (scope) {
-                    app.findGrepPreferences.findWhat = pattern;
-                    return scope.findGrep();
-                }, t);
-                if (found && found.length) {
-                    for (var j = 0; j < found.length; j++) results.push(found[j]);
+                app.findGrepPreferences.findWhat = pattern;
+                for (var i = 0; i < targets.length; i++) {
+                    var t = targets[i];
+                    try {
+                        var found = t.findGrep ? t.findGrep() : [];
+                        if (found && found.length) {
+                            for (var j = 0; j < found.length; j++) results.push(found[j]);
+                        }
+                    } catch (e) {
+                        // Continue with next target
+                    }
                 }
-            } catch (e) {
-                // Continue with next target
-            }
-        }
-        return results;
+            } catch (eOuter) {}
+            return results;
+        });
     }
 
     function changeAcrossTargets(pattern, changeTo, targets) {
-        for (var i = 0; i < targets.length; i++) {
-            var t = targets[i];
+        return FindChange.withFindChange("grep", {}, function () {
             try {
-                InDesignUtils.FindChange.withCleanPrefs(function (scope) {
-                    app.findGrepPreferences.findWhat = pattern;
-                    app.changeGrepPreferences.changeTo = changeTo;
-                    return scope.changeGrep(true);
-                }, t);
-            } catch (e) {
-                // Continue with next target
-            }
-        }
+                app.findGrepPreferences.findWhat = pattern;
+                app.changeGrepPreferences.changeTo = changeTo;
+                for (var i = 0; i < targets.length; i++) {
+                    var t = targets[i];
+                    try {
+                        if (t.changeGrep) t.changeGrep(true);
+                    } catch (e) {
+                        // Continue with next target
+                    }
+                }
+            } catch (eOuter) {}
+        });
     }
 
     // Resolve page info (index and display name) for a given text range; returns null if unavailable
@@ -372,14 +383,5 @@ try {
         if (!name && idx >= 0) name = String(idx + 1);
         if (!name) name = "(no page)";
         return { page: page, index: idx, name: name };
-    }
-
-    // Formats integer numbers with comma thousands separators
-    function formatNumber(n) {
-        var s = String(n);
-        var isNeg = s.charAt(0) === "-";
-        var x = isNeg ? s.substring(1) : s;
-        var formatted = x.replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1,");
-        return isNeg ? "-" + formatted : formatted;
     }
 })();

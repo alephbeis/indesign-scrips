@@ -21,35 +21,60 @@
         }
     }
 
+    // Load UIUtils explicitly for better separation of concerns
+    var UIUtils = null;
+    try {
+        var uiUtilsFile = File(scriptFile.parent.parent + "/Shared/UIUtils.jsx");
+        if (uiUtilsFile.exists) {
+            $.evalFile(uiUtilsFile);
+            UIUtils = this.UIUtils || $.global.UIUtils || null;
+        }
+    } catch (e) {
+        UIUtils = null;
+    }
+
     // Use shared alert function
     var alert =
         utils && utils.UI && utils.UI.alert
             ? utils.UI.alert
-            : function (msg) {
-                  try {
-                      $.writeln(String(msg));
-                  } catch (_) {}
-              };
+            : UIUtils && UIUtils.alert
+              ? UIUtils.alert
+              : function (msg) {
+                    try {
+                        $.writeln(String(msg));
+                    } catch (_) {}
+                };
 
-    if (app.documents.length === 0) {
+    // Get document using shared utility
+    var doc = utils && utils.Objects ? utils.Objects.getActiveDocument() : null;
+    if (!doc && app.documents.length > 0) {
+        doc = app.activeDocument;
+    }
+    if (!doc) {
         alert("Open a document first.");
         return;
     }
-    var doc = app.activeDocument;
 
-    // ---------- Helpers (confirmation + number formatting) ----------
-    function formatNumber(n) {
-        var s = String(n);
-        var isNeg = s.charAt(0) === "-";
-        var x = isNeg ? s.substring(1) : s;
-        var formatted = x.replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1,");
-        return isNeg ? "-" + formatted : formatted;
-    }
+    // ---------- Helpers ----------
+    // Use shared formatNumber function
+    var formatNumber =
+        utils && utils.Utils && utils.Utils.formatNumber
+            ? utils.Utils.formatNumber
+            : function (n) {
+                  // Fallback implementation
+                  var s = String(n);
+                  var isNeg = s.charAt(0) === "-";
+                  var x = isNeg ? s.substring(1) : s;
+                  var formatted = x.replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1,");
+                  return isNeg ? "-" + formatted : formatted;
+              };
 
     function notify(contextTitle, linesArray) {
         // linesArray is an array of strings; we join with newlines
         var text = linesArray.join("\n");
-        if (utils && utils.UI && utils.UI.showMessage) {
+        if (UIUtils && UIUtils.showMessage) {
+            UIUtils.showMessage(contextTitle, text);
+        } else if (utils && utils.UI && utils.UI.showMessage) {
             utils.UI.showMessage(contextTitle, text);
         } else {
             alert(contextTitle + "\n" + text);
@@ -85,7 +110,7 @@
         masterNames.push(prefix + baseName);
     }
 
-    // ---------- Build ScriptUI dialog (like DeleteHebrewMarks) ----------
+    // ---------- Build ScriptUI dialog ----------
     function createDialog() {
         var dlg = new Window("dialog", "Replace: Layer or Parent");
         dlg.orientation = "column";

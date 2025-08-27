@@ -5,6 +5,7 @@
  * ES3-safe; tolerant to find options across builds.
  */
 
+/* global FindChange, UIUtils */
 (function () {
     // Load shared utilities
     try {
@@ -14,9 +15,17 @@
         })();
         var utilsFile = File(scriptInfo.folder.parent + "/Shared/InDesignUtils.jsx");
         if (utilsFile.exists) $.evalFile(utilsFile);
+
+        // Load Find/Change utilities explicitly
+        var findChangeFile = File(scriptInfo.folder.parent + "/Shared/FindChangeUtils.jsx");
+        if (findChangeFile.exists) $.evalFile(findChangeFile);
+
+        // Load UI utilities explicitly (needed for Details and alerts)
+        var uiUtilsFile = File(scriptInfo.folder.parent + "/Shared/UIUtils.jsx");
+        if (uiUtilsFile.exists) $.evalFile(uiUtilsFile);
     } catch (e) {
         try {
-            InDesignUtils.UI.alert("Could not load shared utilities: " + e);
+            UIUtils.alert("Could not load shared utilities: " + e);
         } catch (_) {
             alert("Could not load shared utilities: " + e);
         }
@@ -25,7 +34,7 @@
 
     var doc = InDesignUtils.Objects.getActiveDocument();
     if (!doc) {
-        InDesignUtils.UI.alert("Open a document first.");
+        UIUtils.alert("Open a document first.");
         return;
     }
 
@@ -190,9 +199,55 @@
         return out;
     }
 
+    // Helper: lean master-page aware style usage check using shared FindChange utils
+    function _hasStyleOnMasterPages(style, kind) {
+        // kind: "para" or "char"
+        if (!isValid(style)) return false;
+
+        var foundOnScope = false;
+        try {
+            FindChange.withFindChange(
+                "text",
+                {
+                    includeMasterPages: true,
+                    includeHiddenLayers: true,
+                    includeLockedLayersForFind: true,
+                    includeLockedStoriesForFind: true,
+                    includeFootnotes: true
+                },
+                function () {
+                    // Reset and apply the style to appropriate find preference
+                    try {
+                        app.findTextPreferences = NothingEnum.nothing;
+                    } catch (_r0) {}
+
+                    if (kind === "para") {
+                        try {
+                            app.findTextPreferences.appliedParagraphStyle = style;
+                        } catch (e4) {}
+                    } else if (kind === "char") {
+                        try {
+                            app.findTextPreferences.appliedCharacterStyle = style;
+                        } catch (e5) {}
+                    }
+
+                    var hits = [];
+                    try {
+                        hits = doc.findText();
+                    } catch (e) {
+                        hits = [];
+                    }
+                    foundOnScope = hits && hits.length > 0;
+                    return foundOnScope;
+                }
+            );
+        } catch (_e) {}
+        return foundOnScope;
+    }
+
     // -------- scan: build direct + indirect + dependency notes --------
     function scanDocument() {
-        return InDesignUtils.FindChange.withCleanPrefs(
+        return FindChange.withCleanPrefs(
             function () {
                 var usedD = { para: {}, charS: {}, obj: {}, table: {}, cell: {} }; // direct
                 var usedI = { para: {}, charS: {}, obj: {}, table: {}, cell: {} }; // indirect
@@ -206,11 +261,9 @@
                 for (i = 0; i < P.length; i++) {
                     var ps = P[i];
                     try {
-                        app.findTextPreferences.appliedParagraphStyle = ps;
-                        var hits = doc.findText();
-                        if (hits && hits.length > 0) {
+                        if (_hasStyleOnMasterPages(ps, "para")) {
                             usedD.para[ps.id] = true;
-                            addDep(deps.para, ps.id, "Direct usage found in text");
+                            addDep(deps.para, ps.id, "Direct usage found (including master pages)");
                         }
                     } catch (_eP) {}
                 }
@@ -267,24 +320,15 @@
                 var C = [],
                     ci;
                 for (ci = 0; ci < allC.length; ci++) if (!isBuiltInCharacterStyle(allC[ci])) C.push(allC[ci]);
-                // Use same inclusive find options as paragraph styles
-                InDesignUtils.FindChange.withCleanPrefs(
-                    function () {
-                        for (ci = 0; ci < C.length; ci++) {
-                            var cs = C[ci];
-                            try {
-                                app.findTextPreferences.appliedCharacterStyle = cs;
-                                var hitsC = doc.findText();
-                                if (hitsC && hitsC.length > 0) {
-                                    usedD.charS[cs.id] = true;
-                                    addDep(deps.charS, cs.id, "Direct usage found in text");
-                                }
-                            } catch (_eC) {}
+                for (ci = 0; ci < C.length; ci++) {
+                    var cs = C[ci];
+                    try {
+                        if (_hasStyleOnMasterPages(cs, "char")) {
+                            usedD.charS[cs.id] = true;
+                            addDep(deps.charS, cs.id, "Direct usage found (including master pages)");
                         }
-                    },
-                    undefined,
-                    { inclusive: true }
-                );
+                    } catch (_eC) {}
+                }
 
                 // Character (indirect via paragraph automations)
                 for (i = 0; i < P.length; i++) {
@@ -858,7 +902,7 @@
 
     detailsBtn.onClick = function () {
         if (!list.selection || list.selection.length === 0) {
-            InDesignUtils.UI.alert("Select an item first.");
+            UIUtils.alert("Select an item first.");
             return;
         }
         var sel = list.selection[0];
@@ -870,7 +914,7 @@
                 "\rParent: " +
                 stylePath(s) +
                 "\r\rThis folder is empty (no styles and no subfolders).";
-            InDesignUtils.UI.alert(msgG);
+            UIUtils.alert(msgG);
             return;
         }
         var d = depsForStyle(s);
@@ -881,12 +925,12 @@
             msg += "Dependencies:\r";
             for (i = 0; i < d.length; i++) msg += "  • " + d[i] + "\r";
         }
-        InDesignUtils.UI.alert(msg);
+        UIUtils.alert(msg);
     };
 
     delBtn.onClick = function () {
         if (!list.selection || list.selection.length === 0) {
-            InDesignUtils.UI.alert("Select one or more items to delete.");
+            UIUtils.alert("Select one or more items to delete.");
             return;
         }
         var sel = list.selection,
@@ -985,7 +1029,7 @@
         unused = computeUnused(scan, mode);
         fillList();
 
-        InDesignUtils.UI.alert(
+        UIUtils.alert(
             "Deleted (styles replaced with None; formatting preserved where applicable): " +
                 delCount +
                 (fail ? "\rFailed: " + fail : "")
