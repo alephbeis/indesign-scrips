@@ -1,8 +1,10 @@
-/*
- ChangeNekuda.jsx — Convert one Hebrew nekuda to another
- Follows repo best practices and Scope chooser conventions.
- - Keeps original nekudos order for both "Change From" and "Change To".
-*/
+/**
+ * Purpose: Convert one Hebrew nekuda to another within a chosen scope; provides a guided UI and respects repository scope conventions.
+ * Public API: Script entry point (IIFE). No exported functions; run via the InDesign Scripts panel.
+ * Dependencies: Adobe InDesign ExtendScript runtime (app). Shared modules loaded at runtime: InDesignUtils.jsx, FindChangeUtils.jsx (FindChange), ScopeUtils.jsx, UIUtils.jsx. Requires an open document.
+ * Usage:
+ *   // In InDesign Scripts panel: double-click "ChangeNekuda.jsx" with a document open and choose From/To and Scope.
+ */
 /* global UIUtils, ScopeUtils, FindChange */
 
 (function () {

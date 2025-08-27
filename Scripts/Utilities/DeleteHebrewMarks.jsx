@@ -1,5 +1,10 @@
-// Hebrew Marks Deletion Script
-// Combines functionality to delete Nikud, Teamim, Meseg, or combination
+/*
+DeleteHebrewMarks.jsx
+Purpose: Remove Hebrew marks with selective options: Nikud, Teamim, Meteg (conditional or all), or all combined.
+Public API: Entry point on load; shows dialog and executes based on user choice.
+Dependencies: InDesignUtils.jsx, FindChangeUtils.jsx, ScopeUtils.jsx, UIUtils.jsx
+Usage: Place under Scripts Panel and run with a document open.
+*/
 
 // Load shared utilities
 try {
