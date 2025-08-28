@@ -97,11 +97,8 @@ The script combines multiple processing approaches:
 - **Batch Operations**: Efficient processing of multiple document variations
 - **Output Management**: Organized file naming and location handling
 
-## Compatibility
+## Important Notes
 
-This script is marked as "Not Maintained" in the main repository but remains functional with InDesign versions that support ExtendScript (JSX). Due to its complexity and specialized nature, it requires careful setup and testing before production use.
-
-**Important Notes:**
 - Always work on document copies
 - Test thoroughly with your specific document structure
 - Ensure all prerequisites are met before running

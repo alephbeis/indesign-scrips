@@ -9,7 +9,7 @@ Contents
     - ExportPDF.md — Advanced PDF export with security, interactivity, and page ordering options.
     - ExportPlainRTF.md — Plain text RTF export with formatting removed and page structure preserved.
     - BulkPDFReverse.md — Batch reversed-order PDF export across multiple documents with preset control.
-    - BulkPDFGenerator.md — Feature overview, Nekudos and Variants logic, prerequisites, and usage. (Not Maintained)
+    - BulkPDFGenerator.md — Feature overview, Nekudos and Variants logic, prerequisites, and usage.
   - Utilities
     - ChangeNekuda.md — Catalog of niqqud conversion scripts with details per conversion and usage.
     - DeleteHebrewMarks.md — Remove Hebrew marks with options (Nikud, Teamim, Meteg) and reporting.

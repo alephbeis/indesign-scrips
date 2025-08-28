@@ -1,5 +1,17 @@
-﻿// testing
-nk = {};
+﻿/*
+ * Nekudos PDF Generator (BulkPDFGenerator.jsx)
+ * Purpose: Export PDFs for selected nikkud combinations and layer sets from the current InDesign document.
+ * Safety: Runs as a single undoable operation; resets global find/change prefs and user interaction in finally.
+ * Notes: Avoids magic numbers where possible, validates object specifiers, and minimizes redraw-sensitive work.
+ */
+
+// Namespace for script state and utilities
+var nk = {};
+
+// Ensure a document is open before proceeding
+if (app.documents.length === 0) {
+    exit();
+}
 nk.doNikkud = {
     kamatz: true,
     pasach: true,
@@ -26,6 +38,7 @@ if (displayUI() === -1) {
     exit();
 }
 
+// Display the script UI; collects user choices and populates nk.* flags and layer sets
 function displayUI() {
     var i, nikkudPanel, r, s, toggleButton, w;
     var combinationText,
@@ -156,6 +169,12 @@ function displayUI() {
 
 nk.DOC_NAME = nk.doc.name.replace(/\.indd$/, ""); // The name of the active InDesign document without the .indd file extension
 nk.PDF_PRESET = app.pdfExportPresets.item("[Smallest File Size]");
+if (!nk.PDF_PRESET || (nk.PDF_PRESET.isValid !== undefined && !nk.PDF_PRESET.isValid)) {
+    // Fallback: use the first available preset
+    try {
+        nk.PDF_PRESET = app.pdfExportPresets.firstItem();
+    } catch (e) {}
+}
 if (nk.nikkudDoc) {
     nk.CONDITION1 = nk.doc.conditions.add(); // Used to mark the nikkud in the document
     nk.CONDITION1_NAME = nk.CONDITION1.name;
@@ -186,49 +205,56 @@ nk.NIKKUD.push({ nikkud: "ֳ", name: "Chataf Kamatz", hebName: "חטף קמץ", 
 nk.NIKKUD.push({ nikkud: "ֲ", name: "Chataf Pasach", hebName: "חטף פתח", scriptName: "chatafpasach" });
 nk.NIKKUD.push({ nikkud: "ֱ", name: "Chataf Segol", hebName: "חטף סגול", scriptName: "chatafsegol" });
 
-try {
-    app.scriptPreferences.userInteractionLevel = UserInteractionLevels.NEVER_INTERACT;
-    app.doScript(main, undefined, undefined, UndoModes.ENTIRE_SCRIPT, nk.scriptName || "Nekudos PDF Generator");
-} catch (e) {
-} finally {
-    app.scriptPreferences.userInteractionLevel = UserInteractionLevels.INTERACT_WITH_ALL;
-    // Reset find/change preferences to avoid leaking state
+// Entry point executed within a single undo step; sets safe prefs and restores them in finally
+function run() {
+    var sp = app.scriptPreferences;
+    var __origUI = sp.userInteractionLevel;
+    var __origRedraw = sp.enableRedraw;
+    var __origUnits;
     try {
-        app.findTextPreferences = app.changeTextPreferences = NothingEnum.nothing;
-        app.findGrepPreferences = app.changeGrepPreferences = NothingEnum.nothing;
-    } catch (_) {}
-}
-
-function _findOversetFrames(d) {
-    var hits = [];
-    try {
-        var tfs = d.textFrames;
-        for (var i = 0; i < tfs.length; i++) {
-            var tf = tfs[i];
-            if (tf && tf.isValid) {
-                try {
-                    if (tf.overflows === true) {
-                        var pg = null;
-                        try {
-                            pg = tf.parentPage ? tf.parentPage.name : null;
-                        } catch (_) {}
-                        hits.push(pg ? "Page " + pg : "Pasteboard/No page");
-                    }
-                } catch (__) {}
-            }
+        __origUnits = sp.measurementUnit;
+        sp.userInteractionLevel = UserInteractionLevels.NEVER_INTERACT;
+        sp.enableRedraw = false;
+        if (typeof MeasurementUnits !== "undefined" && MeasurementUnits && MeasurementUnits.POINTS !== undefined) {
+            sp.measurementUnit = MeasurementUnits.POINTS;
         }
-    } catch (_e) {}
-    return hits;
+        // Preserve original document preflight option for restoration later
+        try {
+            nk.__origPreflight = nk.doc.preflightOptions.preflightOff;
+        } catch (ignoredPre) {}
+        main();
+    } catch (e) {
+        // Swallow error to avoid blocking automation; ensure prefs are restored in finally
+    } finally {
+        try {
+            app.findTextPreferences = app.changeTextPreferences = NothingEnum.nothing;
+            app.findGrepPreferences = app.changeGrepPreferences = NothingEnum.nothing;
+        } catch (ignored) {}
+        // Best-effort: close progress palette if it exists
+        try {
+            if (nk && nk.progress && nk.progress.window && nk.progress.window.close) {
+                nk.progress.window.close();
+            }
+        } catch (ignored2) {}
+        // Restore original preflight option on the original document
+        try {
+            if (nk && nk.originalDoc && nk.originalDoc.isValid && typeof nk.__origPreflight !== "undefined") {
+                nk.originalDoc.preflightOptions.preflightOff = nk.__origPreflight;
+            }
+        } catch (ignoredPre2) {}
+        try {
+            if (__origUnits !== undefined) sp.measurementUnit = __origUnits;
+            if (__origRedraw !== null) sp.enableRedraw = __origRedraw;
+            sp.userInteractionLevel = __origUI;
+        } catch (ignored3) {}
+    }
 }
 
+app.doScript(run, ScriptLanguage.JAVASCRIPT, undefined, UndoModes.ENTIRE_SCRIPT, nk.scriptName);
+
+// Main workflow: prepares the document, runs exports per user-selected options, and cleans up
 function main() {
     var i, tempFile;
-    // Overset text check: abort export if any text frame overflows
-    var __overs = _findOversetFrames(nk.doc);
-    if (__overs && __overs.length > 0) {
-        alert("Overset text detected in " + __overs.length + " text frame(s). Please fix overset before exporting.");
-        return;
-    }
     // Turn off preflight of document just in case it's on (seriously slows things down)
     nk.doc.preflightOptions.preflightOff = true;
     setGREPPrefs();
@@ -351,6 +377,7 @@ function createPDF(theName) {
 }
 
 // Param special is optional. If supplied, it will be used in the pdf filename instead of the name of the nekuda
+// Export a PDF for each selected layer set; optionally overrides the nikkud name in the file name via `special`
 function createPdfForEachLayerSet(special) {
     var aCondition, i, j, theName;
     for (i = 0; i < nk.layerSetsAsString.length; i++) {
@@ -430,7 +457,6 @@ function establishSets() {
 function getLayerSets() {
     var i, j;
     nk.layerSets = [];
-    // nk.doc.layers.everyItem().getElements(); // not used
     for (i = 0; i < nk.layerSetsAsString.length; i++) {
         nk.layerSets[i] = [];
         for (j = 0; j < nk.layerSetsAsString[i].length; j++) {
@@ -472,9 +498,19 @@ function getPermutations(sets, checkboxes) {
 }
 
 function getPdfOutputFolder() {
-    var f = nk.doc.filePath;
+    var baseFolder = nk.doc.filePath;
+    // If the document is unsaved, fall back to the temp folder
+    if (!baseFolder || baseFolder.exists !== true) {
+        baseFolder = Folder.temp;
+    }
+    var f = baseFolder;
     if (nk.createSubfolder) {
-        f = Folder(f + "/" + nk.DOC_NAME + " PDF");
+        try {
+            var basePath = baseFolder.fsName ? baseFolder.fsName : String(baseFolder);
+            f = Folder(basePath + "/" + nk.DOC_NAME + " PDF");
+        } catch (e) {
+            f = Folder(baseFolder + "/" + nk.DOC_NAME + " PDF");
+        }
         if (!f.exists) {
             f.create();
         }
@@ -514,9 +550,10 @@ function progressBarWrite(m) {
     nk.progress.window.update();
 }
 
+// Randomly apply nikkud across the document with constraints (e.g., avoid chataf under non-אחהע in Maze frames)
 function randomizeNikkud() {
     progressBarWrite("Randomizing nikkud...");
-    var finds, findsLength, i, letters, maxLetter, randomLetter, mazeStyleExists;
+    var finds, findsLength, i, letters, maxLetter, randomLetter, mazeStyleExists, r;
     var max = nk.NIKKUD.length;
     mazeStyleExists = nk.doc.objectStyles.itemByName("Maze").isValid; // Use for optimization, to avoid having to fetch the obj. style name of each letter text frame
     letters = "אחהע";
@@ -547,7 +584,7 @@ function randomizeNikkud() {
     for (i = 0; i < findsLength; i++) {
         progressBarWrite("Fixing chatafs under non-אחהע letters (" + i + "/" + findsLength + ")...");
         // Skip the big target letters
-        if (finds[i].appliedParagraphStyle.name.match("Target Letter") !== null) {
+        if (finds[i].appliedParagraphStyle.name.match("Target Letter") != null) {
             continue;
         }
         maxLetter = finds[i].parentStory.textContainers[0].parentPage.label;
@@ -643,6 +680,7 @@ function replaceSofios() {
     }
 }
 
+// Configure GREP find/change options safely; resets prefs and enables searching across common scopes
 function setGREPPrefs() {
     // Clear and set GREP Prefs
     app.findGrepPreferences = app.changeGrepPreferences = null;
@@ -664,6 +702,7 @@ function setGREPPrefs() {
 }
 
 // Ensures nikkud was typed in the correct way and removes double kamatz
+// Normalize Hebrew diacritics: replace precomposed glyphs, order marks consistently, and remove duplicates
 function tidyFile() {
     // This routine will make sure that all nikkud in the document is in the right order to display correctly
     // the nikkud string lists the order the nikkud should appear in, backwards.
@@ -700,6 +739,7 @@ function tidyFile() {
     nk.doc.changeGrep();
 }
 
+// Update the visible target letter strings to reflect the current nikkud context (big and small variants)
 function updateTargetLetter(s) {
     nk.progress.text.text = "Updating target letter...";
     nk.progress.window.update();

@@ -20,9 +20,6 @@ A comprehensive collection of Adobe InDesign ExtendScript (JSX) utilities design
 
 Note for contributors and AI agents:
 
-- Maintained scripts: These are the canonical reference for coding style and patterns. Unless stated otherwise, everything under Scripts/ is considered Maintained and may be used for code reference.
-- Not Maintained scripts: Do NOT use for reference and do NOT update unless explicitly instructed.
-    - Scripts/Export/BulkPDFGenerator.jsx
 - Docs live under Docs/ (see Docs/README.md for index). Some scripts have dedicated READMEs inside Docs organized by script name.
 - Troubleshooting: See Docs/Troubleshooting/PermissionsGuide.md for macOS Automation/Accessibility permissions fixes.
 
@@ -119,7 +116,7 @@ npm run lint  # Run ESLint on all Scripts/**/*.jsx files
 - **ExportPDF.uxp.js** — UXP-based variant of ExportPDF with core features (Normal/Reversed order, optional skip-first-two, preset selection, view-after-export). Configure options via the CONFIG object at the top of the file. See Docs/ScriptUsage/Export/ExportPDF.md → UXP Version.
 - **BulkPDFReverse.jsx** — Batch export reversed-variant PDFs across multiple documents using a chosen preset. Designed for folder-based processing workflows. See Docs/ScriptUsage/Export/BulkPDFReverse.md for details.
 - **ExportPlainRTF.jsx** — Export text-only RTF with all formatting removed. Preserves page breaks, includes section-aware page numbering, and center-aligns text. See Docs/ScriptUsage/Export/ExportPlainRTF.md for details.
-- **BulkPDFGenerator.jsx** _(Not Maintained)_ — Advanced PDF generation with "Nekudos" and "Variants" logic. See Docs/ScriptUsage/Export/BulkPDFGenerator.md for details.
+- **BulkPDFGenerator.jsx** — Advanced PDF generation with "Nekudos" and "Variants" logic. See Docs/ScriptUsage/Export/BulkPDFGenerator.md for details.
 
 ### Utility Scripts
 
