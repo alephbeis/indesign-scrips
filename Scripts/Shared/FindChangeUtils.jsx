@@ -466,6 +466,89 @@ var FindChange = FindChange || {};
         });
     };
 
+    // Shared mappings and helpers (ES3-safe)
+    // _toGrepEscapes: Convert a JavaScript string into an InDesign GREP-escaped sequence
+    // e.g. "אב" -> "\\x{05D0}\\x{05D1}". This operates on 16-bit code units (ES3), which is
+    // sufficient for BMP ranges like Hebrew. If you ever map characters beyond the BMP (surrogate pairs),
+    // each half will be escaped separately; adjust implementation only if truly needed for such ranges.
+    function _toGrepEscapes(str) {
+        var out = "";
+        if (!str) return out;
+        for (var i = 0; i < str.length; i++) {
+            var code = str.charCodeAt(i);
+            var hex = code.toString(16).toUpperCase();
+            while (hex.length < 4) hex = "0" + hex;
+            out += "\\x{" + hex + "}";
+        }
+        return out;
+    }
+
+    // Centralized mappings repository for find/change normalizations.
+    // Rationale:
+    //  - Canonicalize legacy Hebrew presentation forms and font-specific PUA code points to base letter + marks.
+    //  - Keep a single source of truth so multiple scripts can consume the same normalization set.
+    //  - Pairs are literal character-to-string mappings (no regex semantics).
+    //  - Order within the right-hand side should already be canonical (base + diacritics). Mark reordering rules
+    //    like dagesh-before-vowels are handled by scripts (e.g., CharacterCleanup) separately.
+    //  - When adding new pairs, prefer explicit entries and document any PUA origins.
+    NS.mappings = NS.mappings || {};
+    NS.mappings.hebrewPresentationMap = [
+        ["\uFB1D", "\u05D9\u05B4"], // יִ YOD WITH HIRIQ → י + HIRIQ
+        ["\uFB2A", "\u05E9\u05C1"], // שׁ SHIN WITH SHIN DOT → ש + SHIN DOT
+        ["\uFB2B", "\u05E9\u05C2"], // שׂ SHIN WITH SIN DOT → ש + SIN DOT
+        ["\uFB2C", "\u05E9\u05BC\u05C1"], // שּׁ SHIN WITH DAGESH AND SHIN DOT → ש + DAGESH + SHIN DOT
+        ["\uFB2D", "\u05E9\u05BC\u05C2"], // שּׂ SHIN WITH DAGESH AND SIN DOT → ש + DAGESH + SIN DOT
+        ["\uFB2E", "\u05D0\u05B7"], // אַ ALEF WITH PATAH → א + PATAH
+        ["\uFB2F", "\u05D0\u05B8"], // אָ ALEF WITH QAMATS → א + QAMATS
+        ["\uFB30", "\u05D0\u05BC"], // אּ ALEF WITH DAGESH → א + DAGESH
+        ["\uFB31", "\u05D1\u05BC"], // בּ BET WITH DAGESH → ב + DAGESH
+        ["\uFB32", "\u05D2\u05BC"], // גּ GIMEL WITH DAGESH → ג + DAGESH
+        ["\uFB33", "\u05D3\u05BC"], // דּ DALET WITH DAGESH → ד + DAGESH
+        ["\uFB34", "\u05D4\u05BC"], // הּ HE WITH MAPIQ (dot) → ה + DAGESH
+        ["\uFB35", "\u05D5\u05BC"], // וּ VAV WITH DAGESH → ו + DAGESH
+        ["\uFB36", "\u05D6\u05BC"], // זּ ZAYIN WITH DAGESH → ז + DAGESH
+        ["\uFB38", "\u05D8\u05BC"], // טּ TET WITH DAGESH → ט + DAGESH
+        ["\uFB39", "\u05D9\u05BC"], // יּ YOD WITH DAGESH → י + DAGESH
+        ["\uFB3A", "\u05DA\u05BC"], // ךּ FINAL KAF WITH DAGESH → ך + DAGESH
+        ["\uFB3B", "\u05DB\u05BC"], // כּ KAF WITH DAGESH → כ + DAGESH
+        ["\uFB3C", "\u05DC\u05BC"], // לּ LAMED WITH DAGESH → ל + DAGESH
+        ["\uFB3E", "\u05DE\u05BC"], // מּ MEM WITH DAGESH → מ + DAGESH
+        ["\uFB40", "\u05E0\u05BC"], // נּ NUN WITH DAGESH → נ + DAGESH
+        ["\uFB41", "\u05E1\u05BC"], // סּ SAMEKH WITH DAGESH → ס + DAGESH
+        ["\uFB43", "\u05E3\u05BC"], // ףּ FINAL PE WITH DAGESH → ף + DAGESH
+        ["\uFB44", "\u05E4\u05BC"], // פּ PE WITH DAGESH → פ + DAGESH
+        ["\uFB46", "\u05E6\u05BC"], // צּ TSADI WITH DAGESH → צ + DAGESH
+        ["\uFB47", "\u05E7\u05BC"], // קּ QOF WITH DAGESH → ק + DAGESH
+        ["\uFB48", "\u05E8\u05BC"], // רּ RESH WITH DAGESH → ר + DAGESH
+        ["\uFB49", "\u05E9\u05BC"], // שּ SHIN WITH DAGESH → ש + DAGESH
+        ["\uFB4A", "\u05EA\u05BC"], // תּ TAV WITH DAGESH → ת + DAGESH
+        ["\uFB4B", "\u05D5\u05B9"], // וֹ VAV WITH HOLAM → ו + HOLAM
+        ["\uFB4C", "\u05D1\u05BF"], // בֿ BET WITH RAFE → ב + RAFE
+        ["\uFB4D", "\u05DB\u05BF"], // כֿ KAF WITH RAFE → כ + RAFE
+        ["\uFB4E", "\u05E4\u05BF"], // פֿ PE WITH RAFE → פ + RAFE
+        ["\uFB4F", "\u05D0\u05DC"], // ﭏ LIGATURE ALEF LAMED → א + ל
+        ["\uE801", "\u05D5\u05B9"], // PUA → ו + HOLAM  (same as FB4B)
+        ["\uE802", "\u05DA\u05B0"], // PUA → ך + SHEVA
+        ["\uE803", "\u05DA\u05B8"], // PUA → ך + QAMATS
+        ["\uE804", "\u05DC\u05B9"], // PUA → ל + HOLAM
+        ["\uE805", "\u05DC\u05B9\u05BC"] // PUA → ל + HOLAM + DAGESH (canonical order)
+    ];
+
+    // Build GREP find/change pairs from the above character map.
+    // - Input: array of [fromChar, toString] pairs (literal chars, not GREP), e.g., ["\uFB4B", "\u05D5\u05B9"].
+    // - Output: array of [fromGrep, toGrep] where each code unit is escaped as \x{XXXX} for InDesign GREP.
+    // - No capturing groups or regex semantics are introduced; if you need complex patterns, build them directly.
+    NS.buildGrepPairsFromCharMap = function (pairs) {
+        var out = [];
+        if (!pairs) return out;
+        for (var i = 0; i < pairs.length; i++) {
+            var from = _toGrepEscapes(pairs[i][0]);
+            var to = _toGrepEscapes(pairs[i][1]);
+            out.push([from, to]);
+        }
+        return out;
+    };
+
     // Auto-wire from InDesignUtils if available (optional)
     try {
         if (typeof InDesignUtils !== "undefined" && InDesignUtils.Error && InDesignUtils.Objects) {

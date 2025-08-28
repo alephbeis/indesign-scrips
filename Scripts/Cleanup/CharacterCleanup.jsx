@@ -1,8 +1,36 @@
-/*
- CharacterCleanup: consolidated GREP replacements into a single array and loop.
- Adds a multi-select dialog (with "All") to choose what to clean.
- Preserves behavior and order. Adds a guard for no open document. Resets GREP prefs safely.
-*/
+/**
+ * CharacterCleanup.jsx
+ *
+ * Purpose
+ * - Interactive cleanup tool for Hebrew typography and spacing in the current InDesign document.
+ * - Provides a simple dialog to choose which cleanup actions to run and which scope to target.
+ *
+ * What it does
+ * - Fix marks order: ensures Dagesh (\x{05BC}) appears before vowel marks when attached to the same base letter.
+ * - Normalize presentation forms: replaces legacy Hebrew presentation forms and PUA characters with canonical base + marks.
+ *   • Normalization pairs are centrally defined in FindChange.mappings.hebrewPresentationMap and consumed via
+ *     FindChange.buildGrepPairsFromCharMap to produce GREP-safe replacements.
+ * - Remove double spaces: repeatedly condenses multiple spaces to single spaces (iterative until stable).
+ * - Trim trailing paragraphs: collapses multiple paragraph returns at the end of a story to a single return.
+ * - Optionally removes non-master guides within the selected scope.
+ *
+ * Safety & Standards
+ * - Validates an active document before running.
+ * - Uses FindChange.withFindChange to safely set and restore GREP find/change preferences.
+ * - Wraps all mutations in a single undo step: app.doScript(..., UndoModes.ENTIRE_SCRIPT, "Character Cleanup").
+ * - Scope handling mirrors repository patterns via ScopeUtils and FindChange.expandScope.
+ *
+ * UI/UX
+ * - Dialog mirrors existing conventions: "All" toggle, grouped options, and a scope panel.
+ * - Displays a concise completion summary listing which actions actually performed changes.
+ *
+ * Dependencies
+ * - InDesignUtils.jsx, FindChangeUtils.jsx (for mappings and safe wrappers), UIUtils.jsx, ScopeUtils.jsx.
+ *
+ * Notes
+ * - This script intentionally avoids changing measurement units or global prefs outside of find/change options.
+ * - If you need to extend normalization, add pairs to FindChange.mappings.hebrewPresentationMap only (single source of truth).
+ */
 /* global UIUtils, ScopeUtils, FindChange */
 
 (function () {
@@ -47,54 +75,20 @@
     }
 
     // Define replacement groups (categories)
+    // Ensure canonical mark order on a single base letter:
+    //  - Group 1: base Hebrew letter subset [א-הח-ת] (excludes ו/ז etc. intentionally)
+    //  - Group 2: one or more vowel marks (niqqud)
+    //  - Group 3: dagesh (\x{05BC}); we swap $2 and $3 so dagesh precedes vowels
     var groupFixOrder = [
-        ["([א-הח-ת])([ְֱֲֳִֵֶַָֹֻׁׂ]+)(ּ)", "$1$3$2"] // ensure dagesh (\x{05BC}) comes before vowels
+        ["([א-הח-ת])([ְֱֲֳִֵֶַָֹֻׁׂ]+)(ּ)", "$1$3$2"] // enforce dagesh-before-vowels on the same base
     ];
 
-    var groupNormalizeForms = [
-        ["\\x{FB2E}", "\\x{00DA}\\x{05B7}"],
-        ["\\x{FB30}", "\\x{00DA}\\x{05BC}"],
-        ["\\x{FB2F}", "\\x{00DA}\\x{05B8}"],
-        ["\\x{FB31}", "\\x{05D1}\\x{05BC}"],
-        ["\\x{FB4C}", "\\x{05D1}\\x{05BF}"],
-        ["\\x{FB32}", "\\x{05D2}\\x{05BC}"],
-        ["\\x{FB33}", "\\x{05D3}\\x{05BC}"],
-        ["\\x{FB34}", "\\x{05D4}\\x{05BC}"],
-        ["\\x{FB35}", "\\x{05D5}\\x{05BC}"],
-        ["\\x{E801}", "\\x{05D5}\\x{05B9}"],
-        ["\\x{FB4B}", "\\x{05D5}\\x{05B9}"],
-        ["\\x{FB36}", "\\x{05D6}\\x{05BC}"],
-        ["\\x{FB38}", "\\x{05D8}\\x{05BC}"],
-        ["\\x{FB39}", "\\x{05D9}\\x{05BC}"],
-        ["\\x{FB1D}", "\\x{05D9}\\x{05B4}"],
-        ["\\x{FB3B}", "\\x{05DB}\\x{05BC}"],
-        ["\\x{FB3A}", "\\x{05DA}\\x{05BC}"],
-        ["\\x{E803}", "\\x{05DA}\\x{05B8}"],
-        ["\\x{FB4D}", "\\x{05DB}\\x{05BF}"],
-        ["\\x{E802}", "\\x{05DA}\\x{05B0}"],
-        ["\\x{FB3C}", "\\x{05DC}\\x{05BC}"],
-        ["\\x{E805}", "\\x{05DC}\\x{05BC}\\x{05B9}"],
-        ["\\x{E804}", "\\x{05DC}\\x{05B9}"],
-        ["\\x{FB3E}", "\\x{05DE}\\x{05BC}"],
-        ["\\x{FB40}", "\\x{05E0}\\x{05BC}"],
-        ["\\x{FB41}", "\\x{05E1}\\x{05BC}"],
-        ["\\x{FB43}", "\\x{05E3}\\x{05BC}"],
-        ["\\x{FB44}", "\\x{05E4}\\x{05BC}"],
-        ["\\x{FB4E}", "\\x{05E4}\\x{05BF}"],
-        ["\\x{FB46}", "\\x{05E6}\\x{05BC}"],
-        ["\\x{FB47}", "\\x{05E7}\\x{05BC}"],
-        ["\\x{FB48}", "\\x{05E8}\\x{05BC}"],
-        ["\\x{FB49}", "\\x{05E9}\\x{05BC}"],
-        ["\\x{FB2B}", "\\x{05E9}\\x{05C2}"],
-        ["\\x{FB2D}", "\\x{05E9}\\x{05BC}\\x{05C2}"],
-        ["\\x{FB2A}", "\\x{05E9}\\x{05C1}"],
-        ["\\x{FB2C}", "\\x{05E9}\\x{05BC}\\x{05C1}"],
-        ["\\x{FB4A}", "\\x{05EA}\\x{05BC}"]
-    ];
+    // Normalize presentation forms (letters with marks)
+    var groupNormalizeForms = FindChange.buildGrepPairsFromCharMap(FindChange.mappings.hebrewPresentationMap);
 
-    var groupDoubleSpace = [
-        ["\\x{0020}\\x{0020}", "\\x{0020}"] // remove double space
-    ];
+    // Remove double space
+    // Remove exactly two consecutive spaces; we run this iteratively to collapse runs > 2 to a single space
+    var groupDoubleSpace = [["\\x{0020}\\x{0020}", "\\x{0020}"]];
 
     // Trim redundant trailing paragraph marks at the end of a story (leave one)
     var groupTrimTrailingParagraphs = [["\\r{2,}\\z", "\\r"]];
@@ -246,6 +240,9 @@
         function () {
             for (var i = 0; i < toRun.length; i++) {
                 var pair = toRun[i];
+                // Bucket index to a human-friendly action label: the groups are appended in order,
+                // so we map each pair to its originating action by proportion.
+                // This avoids storing a label per pair and keeps diffs minimal when the map grows.
                 var actionName = actionNames[Math.floor(i / (toRun.length / actionNames.length))];
 
                 // Special handling for double space removal - make it iterative
@@ -302,6 +299,7 @@
         for (var i = 0; i < src.length; i++) dest.push(src[i]);
     }
 
+    // Apply a single find/change pair across multiple resolved targets (stories/selection/document).
     function changeTargets(find, replaceTo, tgts) {
         var results = FindChange.runFindChange(
             {
@@ -342,6 +340,10 @@
         return results.totalChanged > 0;
     }
 
+    // Iteratively apply a GREP replacement across targets until no matches remain.
+    // Safeguards:
+    //  - Hard iteration cap to prevent runaway loops.
+    //  - No-progress detection across passes to exit early if stuck.
     function changeIterativeTargets(find, replaceTo, tgts) {
         var results = FindChange.runFindChange(
             {
@@ -413,7 +415,12 @@
         return results.totalChanged > 0;
     }
 
-    // Remove non-master guides according to selected scope
+    // Remove non-master guides according to the currently selected scope in the dialog.
+    // Behavior:
+    //  - allDocs: iterate open documents; remove page and spread guides on non-master spreads in each doc.
+    //  - doc: operate on active document.
+    //  - spread/page/selection: compute affected pages from selection/current context and remove on both page and spread.
+    // Safety: temporarily unlock guides at the document level and restore the previous lock state in finally-like blocks.
     function removeNonMasterGuidesForScope() {
         var totalRemoved = 0;
         var selectedScope = scopeUI.getSelectedScope();
