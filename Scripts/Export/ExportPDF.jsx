@@ -93,7 +93,8 @@ Usage:
 
     // Owner/permissions password generator (one per run)
     function _randPwd(len) {
-        var s = "", chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789"; // avoid look-alikes
+        var s = "",
+            chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789"; // avoid look-alikes
         for (var i = 0; i < (len || 20); i++) s += chars.charAt(Math.floor(Math.random() * chars.length));
         return s;
     }
@@ -428,7 +429,8 @@ Usage:
                     pdfPrefs.useSecurity = cbUseSecurity.value;
                 } catch (_eUS) {}
                 if (cbUseSecurity.value) {
-                    try { pdfPrefs.changeSecurityPassword = __ownerPwd;
+                    try {
+                        pdfPrefs.changeSecurityPassword = __ownerPwd;
                     } catch (_ePW) {}
                     try {
                         pdfPrefs.disallowPrinting = true;
