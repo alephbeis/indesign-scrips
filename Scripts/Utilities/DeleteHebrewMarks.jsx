@@ -57,14 +57,49 @@ function createDialog() {
     radioGroup.spacing = 8;
     radioGroup.margins = 12;
 
-    var nikudRadio = radioGroup.add("radiobutton", undefined, "Nikud");
-    var teamimRadio = radioGroup.add("radiobutton", undefined, "Teamim");
-    var mesegConditionalRadio = radioGroup.add("radiobutton", undefined, "Meteg not preceded by a Kamatz");
-    var mesegAllRadio = radioGroup.add("radiobutton", undefined, "All Meteg");
-    var allRadio = radioGroup.add("radiobutton", undefined, "All of the above");
+    var allCheckbox = radioGroup.add("checkbox", undefined, "All");
+    var nikudCheckbox = radioGroup.add("checkbox", undefined, "Nikud");
+    var teamimCheckbox = radioGroup.add("checkbox", undefined, "Teamim");
+    var mesegConditionalCheckbox = radioGroup.add("checkbox", undefined, "Meteg not preceded by a Kamatz");
+    var mesegAllCheckbox = radioGroup.add("checkbox", undefined, "All Meteg");
+
+    // Store individual checkboxes for easier access
+    var individualCheckboxes = [nikudCheckbox, teamimCheckbox, mesegConditionalCheckbox, mesegAllCheckbox];
+
+    // Function to update All checkbox based on individual selections
+    function updateAllCheckbox() {
+        var allSelected = true;
+        for (var i = 0; i < individualCheckboxes.length; i++) {
+            if (!individualCheckboxes[i].value) {
+                allSelected = false;
+                break;
+            }
+        }
+        allCheckbox.value = allSelected;
+    }
+
+    // Function to update individual checkboxes based on All checkbox
+    function updateIndividualCheckboxes() {
+        for (var i = 0; i < individualCheckboxes.length; i++) {
+            individualCheckboxes[i].value = allCheckbox.value;
+        }
+    }
+
+    // All checkbox click handler
+    allCheckbox.onClick = function () {
+        updateIndividualCheckboxes();
+    };
+
+    // Individual checkbox click handlers
+    for (var i = 0; i < individualCheckboxes.length; i++) {
+        individualCheckboxes[i].onClick = function () {
+            updateAllCheckbox();
+        };
+    }
 
     // Defaults
-    nikudRadio.value = true;
+    teamimCheckbox.value = true;
+    updateAllCheckbox(); // Update All checkbox based on initial state
 
     // Create scope panel using shared utility
     var scopeUI = ScopeUtils.createScopePanel(row);
@@ -78,15 +113,19 @@ function createDialog() {
     dialog.defaultElement = runButton;
     dialog.cancelElement = cancelButton;
 
-    var chosen = null;
+    var chosen = [];
     var scopeChoice = null;
 
     runButton.onClick = function () {
-        if (nikudRadio.value) chosen = "Nikud";
-        else if (teamimRadio.value) chosen = "Teamim";
-        else if (mesegConditionalRadio.value) chosen = "Meteg not preceded by a Kamatz";
-        else if (mesegAllRadio.value) chosen = "All Meteg";
-        else if (allRadio.value) chosen = "All of the above";
+        if (nikudCheckbox.value) chosen.push("Nikud");
+        if (teamimCheckbox.value) chosen.push("Teamim");
+        if (mesegConditionalCheckbox.value) chosen.push("Meteg not preceded by a Kamatz");
+        if (mesegAllCheckbox.value) chosen.push("All Meteg");
+
+        if (chosen.length === 0) {
+            showAlert("Please select at least one option to delete.");
+            return;
+        }
 
         scopeChoice = scopeUI.getSelectedScope();
         dialog.close(1);
@@ -96,8 +135,8 @@ function createDialog() {
     };
 
     var result = dialog.show();
-    if (result === 1 && chosen) {
-        return { choice: chosen, scope: scopeChoice };
+    if (result === 1 && chosen.length > 0) {
+        return { choices: chosen, scope: scopeChoice };
     }
     return null; // User cancelled
 }
@@ -109,7 +148,7 @@ if (!activeDoc) {
 } else {
     // Get user selection and scope in a single dialog, then execute
     var userChoice = createDialog();
-    if (userChoice && userChoice.choice) {
+    if (userChoice && userChoice.choices) {
         var scopeChoice = userChoice.scope;
         var targets = ScopeUtils.resolveScopeTargets(scopeChoice);
         if (!targets || targets.length === 0) {
@@ -117,30 +156,38 @@ if (!activeDoc) {
         } else {
             app.doScript(
                 function () {
-                    switch (userChoice.choice) {
-                        case "Nikud":
-                            deleteNikud(false, targets);
-                            break;
-                        case "Teamim":
-                            deleteTeamim(false, targets);
-                            break;
-                        case "Meteg not preceded by a Kamatz":
-                            deleteMesegConditional(false, targets);
-                            break;
-                        case "All Meteg":
-                            deleteMesegAll(false, targets);
-                            break;
-                        case "All of the above":
-                            var foundNikud = deleteNikud(true, targets);
-                            var foundTeamim = deleteTeamim(true, targets);
-                            var foundMeseg = deleteMesegAll(true, targets);
-                            var foundAny = foundNikud || foundTeamim || foundMeseg;
-                            if (foundAny) {
-                                showAlert("All Hebrew marks deletion completed!");
-                            } else {
-                                showAlert("No Hebrew marks found to delete.");
-                            }
-                            break;
+                    var foundAny = false;
+                    var silent = userChoice.choices.length > 1; // Silent when multiple selections
+
+                    for (var i = 0; i < userChoice.choices.length; i++) {
+                        var choice = userChoice.choices[i];
+                        var result = false;
+
+                        switch (choice) {
+                            case "Nikud":
+                                result = deleteNikud(silent, targets);
+                                break;
+                            case "Teamim":
+                                result = deleteTeamim(silent, targets);
+                                break;
+                            case "Meteg not preceded by a Kamatz":
+                                result = deleteMesegConditional(silent, targets);
+                                break;
+                            case "All Meteg":
+                                result = deleteMesegAll(silent, targets);
+                                break;
+                        }
+
+                        if (result) foundAny = true;
+                    }
+
+                    // Show summary message for multiple selections
+                    if (silent) {
+                        if (foundAny) {
+                            showAlert("Hebrew marks deletion completed!");
+                        } else {
+                            showAlert("No Hebrew marks found to delete.");
+                        }
                     }
                 },
                 ScriptLanguage.JAVASCRIPT,
