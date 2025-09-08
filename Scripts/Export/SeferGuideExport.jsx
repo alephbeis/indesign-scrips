@@ -11,7 +11,8 @@ Purpose:
 
 Notes:
 - Output location: Exports into a subfolder named "PDF" inside the document's folder (or inside a user-chosen base folder for unsaved docs).
-- Uses absolute page numbering with '+' to avoid section numbering issues.
+- Creates real InDesign Sections at each divider start page and restarts numbering at 1 for those sections so each exported PDF has independent numbering.
+- Uses absolute '+' page ranges for export to avoid ambiguity regardless of section numbering.
 - Follows repository engineering standards: single undo step, restore globals in finally, validate object specifiers, minimize redraw.
 - This script supersedes the older ExportSectionsToPDF.jsx.
 */
@@ -154,30 +155,6 @@ Notes:
         return sections;
     }
 
-    function getFirstLayerNameOnPage(doc, page) {
-        // Collect layers that actually have items on this page, keep document layer order
-        try {
-            var layersOnPage = {};
-            var items = page.pageItems;
-            for (var i = 0; i < items.length; i++) {
-                var it = items[i];
-                try {
-                    var lyr = it.itemLayer; // Layer
-                    if (lyr && lyr.isValid) layersOnPage[lyr.id] = lyr;
-                } catch (_) {}
-            }
-            // Choose the first layer in doc.layers order that appears on this page
-            var allLayers = doc.layers.everyItem().getElements();
-            for (var j = 0; j < allLayers.length; j++) {
-                var L = allLayers[j];
-                if (layersOnPage[L.id]) return String(L.name || "");
-            }
-            // Fallback: topmost layer name
-            if (allLayers.length > 0) return String(allLayers[0].name || "");
-        } catch (_) {}
-        return "Section";
-    }
-
     function getFirstObjectNameOnPage(page) {
         // Return the first page item's non-empty name on the page (document order), or empty string if none
         try {
@@ -296,6 +273,59 @@ Notes:
         return out;
     }
 
+    function ensureInddSections(doc, sectionDefs) {
+        // Ensure a real InDesign Section starts on each section start page and restarts numbering at 1
+        try {
+            if (!doc || !doc.isValid) return;
+            var existing = [];
+            try {
+                existing = doc.sections.everyItem().getElements();
+            } catch (_) {}
+            function findSectionByStartPage(p) {
+                try {
+                    for (var i = 0; i < existing.length; i++) {
+                        var s = existing[i];
+                        try {
+                            if (s && s.isValid && s.pageStart && s.pageStart === p) return s;
+                        } catch (_) {}
+                    }
+                } catch (_) {}
+                return null;
+            }
+            for (var j = 0; j < sectionDefs.length; j++) {
+                var startP = sectionDefs[j] && sectionDefs[j].startPage;
+                if (!startP || !startP.isValid) continue;
+                var sec = findSectionByStartPage(startP);
+                if (!sec) {
+                    try {
+                        sec = doc.sections.add();
+                        sec.pageStart = startP;
+                    } catch (_) {
+                        // If adding failed, skip this start page
+                        sec = null;
+                    }
+                } else {
+                    // Ensure correct start page in case it's drifted
+                    try {
+                        sec.pageStart = startP;
+                    } catch (_) {}
+                }
+                if (sec && sec.isValid) {
+                    try {
+                        sec.continueNumbering = false;
+                    } catch (_) {}
+                    try {
+                        sec.pageNumberStart = 1;
+                    } catch (_) {}
+                    // Avoid unintended prefixes
+                    try {
+                        sec.includeSectionPrefix = false;
+                    } catch (_) {}
+                }
+            }
+        } catch (_) {}
+    }
+
     function exportSection(doc, range, outFile) {
         // Export given absolute page range to Interactive PDF (preserves hyperlinks)
         var ok = true;
@@ -335,6 +365,8 @@ Notes:
         return ok;
     }
 
+    var __successMessage = null;
+
     function main() {
         var doc = InDesignUtils.Objects.getActiveDocument();
         if (!doc) {
@@ -349,6 +381,7 @@ Notes:
         }
 
         var base = getDocBaseName(doc);
+
         var sections = buildSections(doc);
         if (sections.length === 0) {
             notify(
@@ -358,71 +391,42 @@ Notes:
             return;
         }
 
-        // Locate the 'Level' text target on the first page and store original contents
-        var levelFrame = findLevelTextFrameOnFirstPage(doc);
-        var levelOriginal = null;
-        if (levelFrame && levelFrame.isValid) {
-            try {
-                levelOriginal = String(levelFrame.contents);
-            } catch (_) {}
-        }
+        // Ensure real InDesign Sections exist (numbering restarts at 1)
+        ensureInddSections(doc, sections);
 
-        // Progress UI (palette)
-        var prog = null;
-        if (typeof UIUtils !== "undefined" && UIUtils && UIUtils.createProgressWindow) {
-            prog = UIUtils.createProgressWindow("Exporting Sections…", {
-                width: 420,
-                showLabel: true,
-                initialText: "Preparing…"
-            });
-        }
+        // Locate the 'Level' text target on the first page
+        var levelFrame = findLevelTextFrameOnFirstPage(doc);
 
         var successCount = 0;
-        try {
-            for (var i = 0; i < sections.length; i++) {
-                var sec = sections[i];
-                var objName = getFirstObjectNameOnPage(sec.startPage);
-                var secName = objName || getFirstLayerNameOnPage(doc, sec.startPage);
+        for (var i = 0; i < sections.length; i++) {
+            var sec = sections[i];
+            var objName = getFirstObjectNameOnPage(sec.startPage);
+            var secName = objName || "Section " + (i + 1);
 
-                // Update the 'Level' text frame with the current section name
-                if (levelFrame && levelFrame.isValid) {
-                    try {
-                        var __lvlTxt = String(objName || secName || "");
-                        // Replace hyphens with bullet per requirement
-                        try {
-                            __lvlTxt = __lvlTxt.replace(/-/g, "•");
-                        } catch (_r) {
-                            __lvlTxt = __lvlTxt.split("-").join("•");
-                        }
-                        levelFrame.contents = __lvlTxt;
-                    } catch (_) {}
-                }
-
-                var safeSec = sanitizeName(secName || "Section " + (i + 1));
-                var fileName = base + " - " + safeSec + ".pdf";
-                var outFile = File(outFolder.fsName + "/" + fileName);
-
-                if (prog && prog.update) {
-                    prog.update(Math.round((i / sections.length) * 100), "Exporting: " + fileName);
-                }
-
-                // Build combined page range including first 3 pages and the section pages
-                var range = buildCombinedPageRange(doc, sec.startPage, sec.endPage);
-                if (exportSection(doc, range, outFile)) successCount++;
-            }
-        } finally {
-            // Restore original 'Level' text after all exports
-            if (levelFrame && levelFrame.isValid && levelOriginal !== null) {
+            // Update the 'Level' text frame with the current section name
+            if (levelFrame && levelFrame.isValid) {
                 try {
-                    levelFrame.contents = levelOriginal;
+                    var __lvlTxt = String(objName || secName || "");
+                    // Replace hyphens with bullet per requirement
+                    try {
+                        __lvlTxt = __lvlTxt.replace(/-/g, "•");
+                    } catch (_r) {
+                        __lvlTxt = __lvlTxt.split("-").join("•");
+                    }
+                    levelFrame.contents = __lvlTxt;
                 } catch (_) {}
             }
+
+            var safeSec = sanitizeName(secName || "Section " + (i + 1));
+            var fileName = base + " - " + safeSec + ".pdf";
+            var outFile = File(outFolder.fsName + "/" + fileName);
+
+            // Build combined page range including first 3 pages and the section pages
+            var range = buildCombinedPageRange(doc, sec.startPage, sec.endPage);
+            if (exportSection(doc, range, outFile)) successCount++;
         }
 
-        if (prog && prog.update) prog.update(100, "Done.");
-        if (prog && prog.close) prog.close();
-
-        notify("Exported " + successCount + " section PDF(s) to:\n" + outFolder.fsName, "Sefer Guide Export");
+        __successMessage = "Exported " + successCount + " section PDF(s) to:\n" + outFolder.fsName;
     }
 
     // Entry: single undo step and safe preferences
@@ -441,6 +445,7 @@ Notes:
             try {
                 sp.measurementUnit = MeasurementUnits.POINTS;
             } catch (_) {}
+            // Disable redraw for performance during heavy operations
             try {
                 sp.enableRedraw = false;
             } catch (_) {}
@@ -462,6 +467,14 @@ Notes:
         } else {
             run();
         }
+        // Undo all document changes performed during the script
+        try {
+            if (app && app.undo) app.undo();
+        } catch (_) {}
+        // Now show the success message, if any
+        try {
+            if (__successMessage) notify(__successMessage, "Sefer Guide Export");
+        } catch (_) {}
     } catch (eOuter) {
         notify("Script failed: " + eOuter, "Sefer Guide Export");
     }
