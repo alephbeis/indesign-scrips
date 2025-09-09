@@ -179,20 +179,18 @@ Usage:
 
     var cbViewPDF;
 
-    // Watermark section
-    var sep = settingsPanel.add("group", undefined, "");
-    sep.margins = 0;
-    sep.spacing = 0;
-    sep.alignment = ["fill", "top"];
-    sep.alignChildren = ["fill", "fill"]; // thin separator without extra spacing
-    var sepLine = sep.add("panel", undefined, "");
-    sepLine.margins = 0;
-    sepLine.preferredSize.height = 1; // 1px line
+    // Content Options panel: move Watermark and Sheva here
+    var contentPanel = w.add("panel", undefined, "Content Options");
+    contentPanel.orientation = "column";
+    contentPanel.alignChildren = ["left", "top"];
+    contentPanel.margins = 12;
+    contentPanel.spacing = 8;
 
-    var cbWatermark = settingsPanel.add("checkbox", undefined, "Add text watermark (preconfigured styling)");
+    // Watermark option
+    var cbWatermark = contentPanel.add("checkbox", undefined, "Add text watermark (preconfigured styling)");
     cbWatermark.value = false;
 
-    var watermarkGroup = settingsPanel.add("group");
+    var watermarkGroup = contentPanel.add("group");
     watermarkGroup.orientation = "column";
     watermarkGroup.alignChildren = ["fill", "top"];
     watermarkGroup.spacing = 4;
@@ -233,9 +231,43 @@ Usage:
     };
     updateCompatibility();
 
-    // Place View PDF option last in Settings panel
-    cbViewPDF = settingsPanel.add("checkbox", undefined, "View PDF after export");
-    cbViewPDF.value = false;
+    // Sheva spelling controls (no subpanel) inside Content Options
+    // Use explicit Unicode escapes to ensure correct rendering in ScriptUI
+    var H_SHEVA = "\u05E9\u05D1\u05D0"; // שבא
+    var H_SHVA = "\u05E9\u05D5\u05D0"; // שוא
+    // Niqqud variants (combining marks order can differ), handle both orders and precomposed shin-with-dot
+    // Source: שְׁבָא (shin + sheva + shindot | shindot + sheva, bet + qamats, alef)
+    var H_SHEVA_NIQ1 = "\u05E9\u05B0\u05C1\u05D1\u05B8\u05D0"; // שְׁבָא (sheva then shin-dot)
+    var H_SHEVA_NIQ2 = "\u05E9\u05C1\u05B0\u05D1\u05B8\u05D0"; // שְׁבָא (shin-dot then sheva)
+    var H_SHEVA_NIQ3 = "\uFB2A\u05B0\u05D1\u05B8\u05D0"; // שְׁבָא (precomposed shin-dot + sheva)
+    // Target: שְׁוָא (shin + marks, vav + qamats, alef), both orders and precomposed shin-with-dot
+    var H_SHVA_NIQ1 = "\u05E9\u05B0\u05C1\u05D5\u05B8\u05D0"; // sheva then shin-dot (canonical target)
+
+    var shevaGroup = contentPanel.add("group");
+    shevaGroup.orientation = "row";
+    shevaGroup.alignChildren = ["left", "center"];
+    shevaGroup.spacing = 8;
+    shevaGroup.add("statictext", undefined, "Sheva Spelling:");
+    var rbShevaDefault = shevaGroup.add("radiobutton", undefined, H_SHEVA);
+    var rbShevaAlt = shevaGroup.add("radiobutton", undefined, H_SHVA);
+    rbShevaDefault.value = true; // default selection
+
+    // Tzeireh spelling controls
+    // Plain forms and nikkud forms
+    var H_TZEIREH = "\u05E6\u05D9\u05E8\u05D4"; // צירה
+    var H_TZEIRI = "\u05E6\u05D9\u05E8\u05D9"; // צירי
+    // With nikkud: צֵירֶה and צֵירֵי (tsadi + tsere, yod, resh + segol/he or tsere/yod)
+    var H_TZEIREH_NIQ1 = "\u05E6\u05B5\u05D9\u05E8\u05B6\u05D4"; // צֵירֶה
+    var H_TZEIRI_NIQ1 = "\u05E6\u05B5\u05D9\u05E8\u05B5\u05D9"; // צֵירֵי
+
+    var tzeirehGroup = contentPanel.add("group");
+    tzeirehGroup.orientation = "row";
+    tzeirehGroup.alignChildren = ["left", "center"];
+    tzeirehGroup.spacing = 8;
+    tzeirehGroup.add("statictext", undefined, "Tzeireh Spelling:");
+    var rbTzeirehDefault = tzeirehGroup.add("radiobutton", undefined, H_TZEIREH);
+    var rbTzeirehAlt = tzeirehGroup.add("radiobutton", undefined, H_TZEIRI);
+    rbTzeirehDefault.value = true; // default selection
 
     var folderPanel = w.add("panel", undefined, "Output");
     folderPanel.orientation = "column";
@@ -269,6 +301,10 @@ Usage:
     // Option: export into a 'PDF' subfolder under the selected directory
     var pdfSubfolderCheckbox = folderPanel.add("checkbox", undefined, "Export to PDF folder");
     pdfSubfolderCheckbox.value = false;
+
+    // Move View PDF option into Output section
+    cbViewPDF = folderPanel.add("checkbox", undefined, "View PDF after export");
+    cbViewPDF.value = false;
 
     var btns = w.add("group");
     btns.alignment = "right";
@@ -562,6 +598,8 @@ Usage:
 
     var didSomething = false;
     var tmpWM = null;
+    var __didShevaReplace = false;
+    var __didTzeirehReplace = false;
 
     // SECTION: Single Undo Wrapper & Preference Safety
     // Wrap export work in one undo step and use Prefs.withSafePreferences to normalize
@@ -595,6 +633,73 @@ Usage:
                 InDesignUtils.Prefs.withSafePreferences(
                     function () {
                         // Normalize units and suppress redraw during heavy operations
+                        // Apply Nekudos Sheva/Tzeireh spelling substitution if requested (temporary change)
+                        if (rbShevaAlt.value || rbTzeirehAlt.value) {
+                            try {
+                                // Reset prefs before use
+                                app.findTextPreferences = app.changeTextPreferences = NothingEnum.nothing;
+                                app.findGrepPreferences = app.changeGrepPreferences = NothingEnum.nothing;
+
+                                // Sheva: Handle niqqud variants for שְׁבָא -> שְׁוָא
+                                if (rbShevaAlt.value) {
+                                    var _fromNiq = [H_SHEVA_NIQ1, H_SHEVA_NIQ2, H_SHEVA_NIQ3];
+                                    // Always convert to a single canonical target form (H_SHVA_NIQ1)
+                                    for (var _i = 0; _i < _fromNiq.length; _i++) {
+                                        try {
+                                            app.findTextPreferences.findWhat = _fromNiq[_i];
+                                            app.changeTextPreferences.changeTo = H_SHVA_NIQ1;
+                                            if (doc && doc.changeText) doc.changeText();
+                                            else app.changeText();
+                                        } catch (_ctNiq) {}
+                                        // Clear between passes
+                                        try {
+                                            app.findTextPreferences = app.changeTextPreferences = NothingEnum.nothing;
+                                        } catch (_clrN) {}
+                                    }
+                                    // Simple form: שבא -> שוא
+                                    app.findTextPreferences.findWhat = H_SHEVA;
+                                    app.changeTextPreferences.changeTo = H_SHVA;
+                                    try {
+                                        if (doc && doc.changeText) doc.changeText();
+                                        else app.changeText();
+                                    } catch (_ct2) {}
+                                    __didShevaReplace = true;
+                                }
+
+                                // Tzeireh: Handle diacritic and plain variants: צֵירֶה -> צֵירֵי, צירה -> צירי
+                                if (rbTzeirehAlt.value) {
+                                    try {
+                                        app.findTextPreferences = app.changeTextPreferences = NothingEnum.nothing;
+                                    } catch (_clrA) {}
+                                    // Nikkud form
+                                    try {
+                                        app.findTextPreferences.findWhat = H_TZEIREH_NIQ1;
+                                        app.changeTextPreferences.changeTo = H_TZEIRI_NIQ1;
+                                        if (doc && doc.changeText) doc.changeText();
+                                        else app.changeText();
+                                    } catch (_ctNiqT) {}
+                                    try {
+                                        app.findTextPreferences = app.changeTextPreferences = NothingEnum.nothing;
+                                    } catch (_clrB) {}
+                                    // Plain form
+                                    app.findTextPreferences.findWhat = H_TZEIREH;
+                                    app.changeTextPreferences.changeTo = H_TZEIRI;
+                                    try {
+                                        if (doc && doc.changeText) doc.changeText();
+                                        else app.changeText();
+                                    } catch (_ctPlainT) {}
+                                    __didTzeirehReplace = true;
+                                }
+                            } finally {
+                                // Always clear preferences
+                                try {
+                                    app.findTextPreferences = app.changeTextPreferences = NothingEnum.nothing;
+                                } catch (_c1) {}
+                                try {
+                                    app.findGrepPreferences = app.changeGrepPreferences = NothingEnum.nothing;
+                                } catch (_c2) {}
+                            }
+                        }
                         return runExports();
                     },
                     { measurementUnit: MeasurementUnits.POINTS, enableRedraw: false }
@@ -616,6 +721,13 @@ Usage:
         UndoModes.ENTIRE_SCRIPT,
         "Export PDF"
     );
+
+    // Undo temporary Sheva/Tzeireh spelling changes (revert document to original state)
+    try {
+        if ((__didShevaReplace || __didTzeirehReplace) && app && app.undo) {
+            app.undo();
+        }
+    } catch (_undoErr) {}
 
     // SECTION: Post-Export UI & Viewer Activation
     // Notify the user and optionally bring a PDF viewer to the foreground via ExportUtils.
