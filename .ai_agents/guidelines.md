@@ -1,7 +1,7 @@
 # Agent Project Guidelines
 
 Purpose
-- This file provides project-specific guidance for Junie (JetBrains autonomous coding agent) to ensure all generated code aligns with this repository’s standards and workflows.
+- This file provides project-specific guidance for autonomous coding agents to ensure all generated code aligns with this repository’s standards and workflows.
 
 Pre-submit checklist
 1) Read and follow the Engineering Code Standards
