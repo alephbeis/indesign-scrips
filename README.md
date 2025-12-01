@@ -26,7 +26,7 @@ Note for contributors and AI agents:
 ## Repository layout
 
 - Scripts/ — Runnable scripts and shared utility libraries
-    - Scripts/Export/ — Export scripts (ExportPDF, ExportPlainRTF, BulkPDFGenerator, BulkPDFReverse)
+    - Scripts/Export/ — Export scripts (ExportPDF, ExportPlainRTF, ExportMarkdownGuide, BulkPDFGenerator, BulkPDFReverse)
     - Scripts/Utilities/ — Common utilities (ChangeNekuda, DeleteHebrewMarks, SelectText)
     - Scripts/Cleanup/ — Document cleanup utilities (CharacterCleanup, RemoveNumericPrefixes, ReplaceObject, UnusedStylesManager)
     - Scripts/Shared/ — Shared utility libraries (InDesignUtils.jsx provides error handling, object utilities, layer management, and preferences management; FindChangeUtils.jsx provides find/change operations; UIUtils.jsx provides UI helpers; ScopeUtils.jsx provides scope resolution; ExportUtils.jsx provides export/PDF helpers). Exposed namespaces: InDesignUtils, FindChange, UIUtils, ScopeUtils, ExportUtils
