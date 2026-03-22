@@ -76,11 +76,15 @@
 
     // Define replacement groups (categories)
     // Ensure canonical mark order on a single base letter:
-    //  - Group 1: base Hebrew letter subset [א-הח-ת] (excludes ו/ז etc. intentionally)
-    //  - Group 2: one or more vowel marks (niqqud)
-    //  - Group 3: dagesh (\x{05BC}); we swap $2 and $3 so dagesh precedes vowels
+    //   letter, shin/sin dot, dagesh, nekuda (vowel), taam, other mark
+    // Two-pass approach:
+    //  - Pass 1: move shin/sin dot right after base letter (before dagesh and vowels)
+    //  - Pass 2: move dagesh before vowels (after shin/sin dot if present)
     var groupFixOrder = [
-        ["([א-הח-ת])([ְֱֲֳִֵֶַָֹֻׁׂ]+)(ּ)", "$1$3$2"] // enforce dagesh-before-vowels on the same base
+        // Step 1: Move shin/sin dot right after base letter (before dagesh and vowels)
+        ["([א-הח-ת])([ְֱֲֳִֵֶַָֹֻּ]+)([ׁׂ])", "$1$3$2"],
+        // Step 2: Move dagesh before vowels (after shin/sin dot if present)
+        ["([א-הח-ת][ׁׂ]?)([ְֱֲֳִֵֶַָֹֻ]+)(ּ)", "$1$3$2"]
     ];
 
     // Normalize presentation forms (letters with marks)

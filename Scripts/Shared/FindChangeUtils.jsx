@@ -496,8 +496,8 @@ var FindChange = FindChange || {};
         ["\uFB1D", "\u05D9\u05B4"], // יִ YOD WITH HIRIQ → י + HIRIQ
         ["\uFB2A", "\u05E9\u05C1"], // שׁ SHIN WITH SHIN DOT → ש + SHIN DOT
         ["\uFB2B", "\u05E9\u05C2"], // שׂ SHIN WITH SIN DOT → ש + SIN DOT
-        ["\uFB2C", "\u05E9\u05BC\u05C1"], // שּׁ SHIN WITH DAGESH AND SHIN DOT → ש + DAGESH + SHIN DOT
-        ["\uFB2D", "\u05E9\u05BC\u05C2"], // שּׂ SHIN WITH DAGESH AND SIN DOT → ש + DAGESH + SIN DOT
+        ["\uFB2C", "\u05E9\u05C1\u05BC"], // שּׁ SHIN WITH DAGESH AND SHIN DOT → ש + SHIN DOT + DAGESH
+        ["\uFB2D", "\u05E9\u05C2\u05BC"], // שּׂ SHIN WITH DAGESH AND SIN DOT → ש + SIN DOT + DAGESH
         ["\uFB2E", "\u05D0\u05B7"], // אַ ALEF WITH PATAH → א + PATAH
         ["\uFB2F", "\u05D0\u05B8"], // אָ ALEF WITH QAMATS → א + QAMATS
         ["\uFB30", "\u05D0\u05BC"], // אּ ALEF WITH DAGESH → א + DAGESH
