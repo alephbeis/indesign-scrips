@@ -139,12 +139,12 @@
     // Create scope panel using shared utility
     var scopeUI = ScopeUtils.createScopePanel(row);
 
-    // Defaults
-    allCb.value = true;
+    // Defaults: everything except double space removal, which is opt-in
+    allCb.value = false;
     cbSin.value = true;
     cbFix.value = true;
     cbNorm.value = true;
-    cbDbl.value = true;
+    cbDbl.value = false;
     cbTrail.value = true;
     cbGuides.value = true;
 

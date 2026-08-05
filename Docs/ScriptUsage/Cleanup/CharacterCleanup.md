@@ -49,6 +49,7 @@ The `CharacterCleanup.jsx` script provides comprehensive Hebrew text cleanup thr
 - **Purpose**: Eliminates consecutive space characters throughout the text
 - **Pattern**: `\x{0020}\x{0020}` → `\x{0020}` (iterative replacement)
 - **Effect**: Cleans up spacing inconsistencies from text import or editing
+- **Default**: Off. This is the one action that is opt-in, since intentional double spacing is common in laid-out text
 
 ### Trim Trailing Paragraph Marks
 - **Purpose**: Removes excess paragraph breaks at story endings while preserving one
