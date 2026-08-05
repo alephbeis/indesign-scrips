@@ -24,6 +24,14 @@ The `CharacterCleanup.jsx` script provides comprehensive Hebrew text cleanup thr
 
 ## Available Cleanup Actions
 
+### Convert Sin Dot to Holam (Letters Other Than Shin)
+- **Purpose**: Fixes a holam that was typed as a sin dot. A sin dot (U+05C2) renders in the same top-left position as a
+  holam (U+05B9) and is only meaningful on Shin (U+05E9), so on any other letter it is a masquerading holam
+- **Pattern**: `([א-רת])([\x{0591}-\x{05BD}\x{05BF}\x{05C4}\x{05C5}\x{05C7}]*)\x{05C2}` → `$1$2\x{05B9}`
+- **Effect**: Replaces the sin dot with a holam, preserving any dagesh, vowels or taamim between the base letter and the
+  dot. Shin is left untouched, as are shin dots (U+05C1)
+- **Order**: Runs before "Fix marks order" so the resulting holam is sequenced with the other vowel marks
+
 ### Fix Marks Order (Dagesh Before Vowels)
 - **Purpose**: Ensures proper Hebrew character ordering with dagesh before vowel marks
 - **Pattern**: `([א-הח-ת])([ְֱֲֳִֵֶַָֹֻׁׂ]+)(ּ)` → `$1$3$2`

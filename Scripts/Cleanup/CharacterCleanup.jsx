@@ -6,6 +6,8 @@
  * - Provides a simple dialog to choose which cleanup actions to run and which scope to target.
  *
  * What it does
+ * - Convert sin dot to holam: a Sin dot (\x{05C2}) on any letter other than Shin (\x{05E9}) is a Holam (\x{05B9})
+ *   that was typed as a sin dot; it occupies the same position, so it is converted back.
  * - Fix marks order: ensures Dagesh (\x{05BC}) appears before vowel marks when attached to the same base letter.
  * - Normalize presentation forms: replaces legacy Hebrew presentation forms and PUA characters with canonical base + marks.
  *   • Normalization pairs are centrally defined in FindChange.mappings.hebrewPresentationMap and consumed via
@@ -87,6 +89,13 @@
         ["([א-הח-ת][ׁׂ]?)([ְֱֲֳִֵֶַָֹֻ]+)(ּ)", "$1$3$2"]
     ];
 
+    // A sin dot (\x{05C2}) sits in the same position as a holam (\x{05B9}) and is only valid on Shin (\x{05E9}).
+    // On any other letter it is a holam that was typed as a sin dot, so convert it back.
+    // Intervening marks (dagesh, vowels, taamim) are allowed between the base letter and the dot and are preserved.
+    var groupSinDotToHolam = [
+        ["([א-רת])([\\x{0591}-\\x{05BD}\\x{05BF}\\x{05C4}\\x{05C5}\\x{05C7}]*)\\x{05C2}", "$1$2\\x{05B9}"]
+    ];
+
     // Normalize presentation forms (letters with marks)
     var groupNormalizeForms = FindChange.buildGrepPairsFromCharMap(FindChange.mappings.hebrewPresentationMap);
 
@@ -120,6 +129,7 @@
     optionsPanel.spacing = 8;
 
     var allCb = optionsPanel.add("checkbox", undefined, "All");
+    var cbSin = optionsPanel.add("checkbox", undefined, "Convert sin dot to holam on letters other than Shin");
     var cbFix = optionsPanel.add("checkbox", undefined, "Fix marks order (dagesh before vowels)");
     var cbNorm = optionsPanel.add("checkbox", undefined, "Normalize Hebrew presentation forms (letters with marks)");
     var cbDbl = optionsPanel.add("checkbox", undefined, "Remove double spaces");
@@ -131,6 +141,7 @@
 
     // Defaults
     allCb.value = true;
+    cbSin.value = true;
     cbFix.value = true;
     cbNorm.value = true;
     cbDbl.value = true;
@@ -139,9 +150,10 @@
 
     // Helpers to sync the `All` checkbox
     function syncAllFromChildren() {
-        allCb.value = cbFix.value && cbNorm.value && cbDbl.value && cbTrail.value && cbGuides.value;
+        allCb.value = cbSin.value && cbFix.value && cbNorm.value && cbDbl.value && cbTrail.value && cbGuides.value;
     }
     function setChildren(v) {
+        cbSin.value = v;
         cbFix.value = v;
         cbNorm.value = v;
         cbDbl.value = v;
@@ -151,7 +163,9 @@
 
     // Enable/disable Run button depending on whether any option is selected
     function anyOptionSelected() {
-        return cbFix.value || cbNorm.value || cbDbl.value || cbTrail.value || cbGuides.value || allCb.value;
+        return (
+            cbSin.value || cbFix.value || cbNorm.value || cbDbl.value || cbTrail.value || cbGuides.value || allCb.value
+        );
     }
     function updateRunEnabled() {
         try {
@@ -163,7 +177,8 @@
         setChildren(allCb.value);
         updateRunEnabled();
     };
-    cbFix.onClick =
+    cbSin.onClick =
+        cbFix.onClick =
         cbNorm.onClick =
         cbDbl.onClick =
         cbTrail.onClick =
@@ -199,7 +214,7 @@
     // Run button is disabled when no options are selected (no alert needed)
 
     // Determine what actions are requested
-    var wantsText = allCb.value || cbFix.value || cbNorm.value || cbDbl.value || cbTrail.value;
+    var wantsText = allCb.value || cbSin.value || cbFix.value || cbNorm.value || cbDbl.value || cbTrail.value;
     var wantsGuides = allCb.value || cbGuides.value;
 
     // Resolve text targets only if needed
@@ -216,46 +231,44 @@
         return; // nothing selected (should not happen due to earlier validation)
     }
 
-    // Build the list of replacements to run based on selection
+    // Build the list of replacements to run based on selection.
+    // Each entry carries the label of the action it belongs to so the completion summary stays accurate
+    // regardless of how many pairs a group contributes.
     var toRun = [];
+    if (allCb.value || cbSin.value) {
+        // run before the mark-order pass so the resulting holam is ordered with the other vowels
+        pushPairs(toRun, groupSinDotToHolam, "Convert sin dot to holam");
+    }
     if (allCb.value || cbFix.value) {
-        pushPairs(toRun, groupFixOrder);
+        pushPairs(toRun, groupFixOrder, "Fix marks order");
     }
     if (allCb.value || cbNorm.value) {
-        pushPairs(toRun, groupNormalizeForms);
+        pushPairs(toRun, groupNormalizeForms, "Normalize presentation forms");
     }
     if (allCb.value || cbDbl.value) {
-        pushPairs(toRun, groupDoubleSpace);
+        pushPairs(toRun, groupDoubleSpace, "Remove double spaces");
     }
     if (allCb.value || cbTrail.value) {
         // run trailing paragraph cleanup last
-        pushPairs(toRun, groupTrimTrailingParagraphs);
+        pushPairs(toRun, groupTrimTrailingParagraphs, "Trim trailing paragraph marks");
     }
 
     // Track what was actually changed for the completion dialog
     var changesApplied = [];
-    var actionNames = [];
-    if (allCb.value || cbFix.value) actionNames.push("Fix marks order");
-    if (allCb.value || cbNorm.value) actionNames.push("Normalize presentation forms");
-    if (allCb.value || cbDbl.value) actionNames.push("Remove double spaces");
-    if (allCb.value || cbTrail.value) actionNames.push("Trim trailing paragraph marks");
 
     app.doScript(
         function () {
             for (var i = 0; i < toRun.length; i++) {
                 var pair = toRun[i];
-                // Bucket index to a human-friendly action label: the groups are appended in order,
-                // so we map each pair to its originating action by proportion.
-                // This avoids storing a label per pair and keeps diffs minimal when the map grows.
-                var actionName = actionNames[Math.floor(i / (toRun.length / actionNames.length))];
+                var actionName = pair.label;
 
                 // Special handling for double space removal - make it iterative
-                if (pair[0] === "\\x{0020}\\x{0020}") {
-                    if (changeIterativeTargets(pair[0], pair[1], targets)) {
+                if (pair.find === "\\x{0020}\\x{0020}") {
+                    if (changeIterativeTargets(pair.find, pair.changeTo, targets)) {
                         changesApplied.push(actionName);
                     }
                 } else {
-                    if (changeTargets(pair[0], pair[1], targets)) {
+                    if (changeTargets(pair.find, pair.changeTo, targets)) {
                         changesApplied.push(actionName);
                     }
                 }
@@ -299,8 +312,8 @@
     }
     UIUtils.showMessage("Cleanup Complete", message);
 
-    function pushPairs(dest, src) {
-        for (var i = 0; i < src.length; i++) dest.push(src[i]);
+    function pushPairs(dest, src, label) {
+        for (var i = 0; i < src.length; i++) dest.push({ find: src[i][0], changeTo: src[i][1], label: label });
     }
 
     // Apply a single find/change pair across multiple resolved targets (stories/selection/document).
