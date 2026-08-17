@@ -123,6 +123,7 @@ npm run lint  # Run ESLint on all Scripts/**/*.jsx files
 - **ChangeNekuda.jsx** — Unified Hebrew vowel mark transformer with dialog interface. Convert between 11 different niqqud transformations. See Docs/ScriptUsage/Utilities/ChangeNekuda.md for details.
 - **DeleteHebrewMarks.jsx** — Remove Hebrew marks with selective options: Nikud, Teamim, Meteg (selective or all), or combination. Reports removal counts.
 - **SelectText.jsx** — Select all text from cursor position to story end. Simple utility for text selection workflows.
+- **SharpToSans.jsx** — Convert a document from the three-font Sharp pairing (Alephbeis Sharp with Sharp Sans Display No1 and Sharp Sans) to Alephbeis Sans, which sets both scripts, then remove the GREP styles that existed only to switch between them. Maps the cut names, which are not the same in both families. See Docs/ScriptUsage/Utilities/SharpToSans.md for details.
 
 ### Cleanup Scripts
 
