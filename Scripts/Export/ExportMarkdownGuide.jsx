@@ -91,10 +91,7 @@ if (uiUtilsFile.exists) $.evalFile(uiUtilsFile);
                     outFile = null;
                     try {
                         if (defaultFile && typeof defaultFile.saveDlg === "function") {
-                            outFile = defaultFile.saveDlg(
-                                "Save Markdown Guide",
-                                "Markdown:*.md,Text:*.txt"
-                            );
+                            outFile = defaultFile.saveDlg("Save Markdown Guide", "Markdown:*.md,Text:*.txt");
                         } else {
                             outFile = File.saveDialog("Save Markdown Guide", "Markdown:*.md,Text:*.txt");
                         }
@@ -120,24 +117,6 @@ if (uiUtilsFile.exists) $.evalFile(uiUtilsFile);
                     // Helper function to close progress window
                     function closeProgress() {
                         progressController.close();
-                    }
-
-                    // Helper: sort frames by Y then X (reading order)
-                    function sortFrames(frames) {
-                        frames.sort(function (a, b) {
-                            try {
-                                var ga = a.geometricBounds; // [y1,x1,y2,x2]
-                                var gb = b.geometricBounds;
-                                if (Math.abs(ga[0] - gb[0]) > 5) {
-                                    // Different rows (with 5pt tolerance)
-                                    return ga[0] - gb[0];
-                                }
-                                return ga[1] - gb[1]; // Same row, sort by X
-                            } catch (e) {
-                                return 0;
-                            }
-                        });
-                        return frames;
                     }
 
                     // Helper: normalize plain text
@@ -171,9 +150,14 @@ if (uiUtilsFile.exists) $.evalFile(uiUtilsFile);
                         // Match "BOOK" but not if it contains H1-H6
                         if (name.indexOf("BOOK") >= 0) {
                             // Make sure it's not also an H-level style
-                            if (name.indexOf("H1") < 0 && name.indexOf("H2") < 0 &&
-                                name.indexOf("H3") < 0 && name.indexOf("H4") < 0 &&
-                                name.indexOf("H5") < 0 && name.indexOf("H6") < 0) {
+                            if (
+                                name.indexOf("H1") < 0 &&
+                                name.indexOf("H2") < 0 &&
+                                name.indexOf("H3") < 0 &&
+                                name.indexOf("H4") < 0 &&
+                                name.indexOf("H5") < 0 &&
+                                name.indexOf("H6") < 0
+                            ) {
                                 return true;
                             }
                         }
@@ -189,14 +173,20 @@ if (uiUtilsFile.exists) $.evalFile(uiUtilsFile);
                         // L1/Level 1 = top level (indent 0)
                         // L2/Level 2 = first nested (indent 1 = 2 spaces)
                         // L3/Level 3 = second nested (indent 2 = 4 spaces)
-                        if (name.indexOf("LEVEL 1") >= 0 || name.indexOf("L1") >= 0 || name.indexOf("LIST 1") >= 0) return 0;
-                        if (name.indexOf("LEVEL 2") >= 0 || name.indexOf("L2") >= 0 || name.indexOf("LIST 2") >= 0) return 1;
-                        if (name.indexOf("LEVEL 3") >= 0 || name.indexOf("L3") >= 0 || name.indexOf("LIST 3") >= 0) return 2;
-                        if (name.indexOf("LEVEL 4") >= 0 || name.indexOf("L4") >= 0 || name.indexOf("LIST 4") >= 0) return 3;
-                        if (name.indexOf("LEVEL 5") >= 0 || name.indexOf("L5") >= 0 || name.indexOf("LIST 5") >= 0) return 4;
+                        if (name.indexOf("LEVEL 1") >= 0 || name.indexOf("L1") >= 0 || name.indexOf("LIST 1") >= 0)
+                            return 0;
+                        if (name.indexOf("LEVEL 2") >= 0 || name.indexOf("L2") >= 0 || name.indexOf("LIST 2") >= 0)
+                            return 1;
+                        if (name.indexOf("LEVEL 3") >= 0 || name.indexOf("L3") >= 0 || name.indexOf("LIST 3") >= 0)
+                            return 2;
+                        if (name.indexOf("LEVEL 4") >= 0 || name.indexOf("L4") >= 0 || name.indexOf("LIST 4") >= 0)
+                            return 3;
+                        if (name.indexOf("LEVEL 5") >= 0 || name.indexOf("L5") >= 0 || name.indexOf("LIST 5") >= 0)
+                            return 4;
 
                         // Check for indent/sub indicators
-                        if (name.indexOf("INDENT") >= 0 || name.indexOf("SUB") >= 0 || name.indexOf("NESTED") >= 0) return 1;
+                        if (name.indexOf("INDENT") >= 0 || name.indexOf("SUB") >= 0 || name.indexOf("NESTED") >= 0)
+                            return 1;
 
                         return 0; // Top level (default)
                     }
@@ -282,30 +272,30 @@ if (uiUtilsFile.exists) $.evalFile(uiUtilsFile);
                             }
 
                             // Remove existing numbering and leading whitespace
-                            var cleanText = text.replace(/^\s*\d+[\.\)]\s*/, "");
+                            var cleanText = text.replace(/^\s*\d+[.)]\s*/, "");
                             return indent + "1. " + cleanText;
                         }
 
                         // Check for bulleted list
                         if (isBulletedList(styleName)) {
                             // Determine indent level from style name or text
-                            var indentLevel = getListIndentLevel(styleName);
+                            indentLevel = getListIndentLevel(styleName);
 
                             // Also check leading spaces in text
-                            var indentMatch = text.match(/^(\s+)/);
+                            indentMatch = text.match(/^(\s+)/);
                             if (indentMatch && indentLevel === 0) {
-                                var spaces = indentMatch[1].length;
+                                spaces = indentMatch[1].length;
                                 indentLevel = Math.floor(spaces / 4); // 4 spaces = 1 level
                             }
 
                             // Build indent string (2 spaces per level for markdown)
-                            var indent = "";
-                            for (var ind = 0; ind < indentLevel; ind++) {
+                            indent = "";
+                            for (ind = 0; ind < indentLevel; ind++) {
                                 indent += "  ";
                             }
 
                             // Remove existing bullets and leading whitespace
-                            var cleanText = text.replace(/^\s*[•\-\*]\s*/, "");
+                            cleanText = text.replace(/^\s*[•\-*]\s*/, "");
                             return indent + "- " + cleanText;
                         }
 
@@ -313,7 +303,7 @@ if (uiUtilsFile.exists) $.evalFile(uiUtilsFile);
                         if (level > 0) {
                             // Create markdown header
                             var hashes = "";
-                            for (var i = 0; i < level; i++) {
+                            for (i = 0; i < level; i++) {
                                 hashes += "#";
                             }
                             // Split on line breaks - first line gets header, rest get paragraphs
@@ -351,7 +341,6 @@ if (uiUtilsFile.exists) $.evalFile(uiUtilsFile);
                         function tableToMarkdown(table) {
                             try {
                                 var rows = table.rows;
-                                var cols = table.columns.length;
                                 var mdTable = [];
 
                                 // Process each row
@@ -467,14 +456,12 @@ if (uiUtilsFile.exists) $.evalFile(uiUtilsFile);
                                     var styleName = "";
 
                                     // Check if this paragraph contains a table
-                                    var paraHasTable = false;
                                     try {
                                         var paraTables = para.tables;
                                         if (paraTables && paraTables.length > 0) {
-                                            paraHasTable = true;
                                             // Output the table(s) at this position
                                             for (var ptIdx = 0; ptIdx < paraTables.length; ptIdx++) {
-                                                var mdTable = tableToMarkdown(paraTables[ptIdx]);
+                                                mdTable = tableToMarkdown(paraTables[ptIdx]);
                                                 if (mdTable) {
                                                     markdownParts.push(mdTable);
                                                     markdownParts.push("\n");
